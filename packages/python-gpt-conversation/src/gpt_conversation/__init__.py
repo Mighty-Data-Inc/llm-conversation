@@ -1,6 +1,7 @@
 from .functions import (
     GPT_MODEL_CHEAP,
     GPT_MODEL_SMART,
+    GPT_MODEL_VISION,
     OpenAIClientLike,
     current_datetime_system_message,
     gpt_submit,
@@ -11,6 +12,7 @@ from .json_schema_format import JSONSchemaFormat
 __all__ = [
     "GPT_MODEL_CHEAP",
     "GPT_MODEL_SMART",
+    "GPT_MODEL_VISION",
     "OpenAIClientLike",
     "current_datetime_system_message",
     "gpt_submit",

@@ -26,6 +26,7 @@ from openai.types.responses import EasyInputMessage, ResponseTextConfigParam
 
 GPT_MODEL_CHEAP = "gpt-4.1-nano"
 GPT_MODEL_SMART = "gpt-4.1"
+GPT_MODEL_VISION = "gpt-4.1"
 
 _GPT_RETRY_LIMIT_DEFAULT = 5
 _GPT_RETRY_BACKOFF_TIME_SECONDS_DEFAULT = 30  # seconds
