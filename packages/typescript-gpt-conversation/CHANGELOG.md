@@ -2,6 +2,10 @@
 
 All notable changes to this package will be documented in this file.
 
+## 1.3.1 - 2026-03-04
+
+- Version bump to trigger a CI/CD pipeline test run.
+
 ## 1.2.0 - 2026-03-04
 
 - Keep TypeScript version in sync with Python package `1.2.0`.

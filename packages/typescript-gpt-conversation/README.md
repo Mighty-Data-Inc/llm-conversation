@@ -5,7 +5,7 @@ Utilities for managing multi-shot LLM conversations and structured JSON response
 ## Installation
 
 ```bash
-npm install @mightydatainc/gpt-conversation openai
+npm install @mightydatainc/gpt-conversation
 ```
 
 ## Quick Start
