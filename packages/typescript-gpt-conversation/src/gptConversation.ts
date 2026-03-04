@@ -156,6 +156,25 @@ export class GptConversation extends Array<ConversationMessage> {
     return this.addMessage('developer', content);
   }
 
+  addImage(role: string, text: string, imageDataUrl: string): this {
+    const gptMsgWithImage = {
+      role: role,
+      content: [
+        {
+          type: 'input_text',
+          text: text
+        },
+        {
+          type: 'input_image',
+          image_url: imageDataUrl,
+          detail: 'high',
+        },
+      ],
+    };
+    this.push(gptMsgWithImage);
+    return this;
+  }
+
   async submitMessage(role: string, content: unknown): Promise<unknown> {
     this.addMessage(role, content);
     return this.submit();
@@ -178,6 +197,11 @@ export class GptConversation extends Array<ConversationMessage> {
 
   async submitDeveloperMessage(content: unknown): Promise<unknown> {
     this.addDeveloperMessage(content);
+    return this.submit();
+  }
+
+  async submitImage(role: string, text: string, imageDataUrl: string): Promise<unknown> {
+    this.addImage(role, text, imageDataUrl);
     return this.submit();
   }
 

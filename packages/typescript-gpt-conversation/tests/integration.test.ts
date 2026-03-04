@@ -213,7 +213,7 @@ Nested dict (1 item long):
     expect(sampleArrayData[1]).toBe(33);
   }, 180000);
 
-  it('should be capable of image recognition', async () => {
+  it('should perform image recognition with manual content message', async () => {
     const openaiClient = createClient();
     const convo = new GptConversation([], {
       openaiClient,
@@ -243,6 +243,53 @@ Nested dict (1 item long):
     // We'll test the image message add methods later.
     convo.push(gptMsgWithImage);
 
+    convo.addUserMessage('What is this a picture of?');
+
+    await convo.submit(undefined, undefined, {
+      jsonResponse: JSONSchemaFormat(
+        'ImageIdentification',
+        {
+          image_subject_enum: [
+            'house',
+            'chair',
+            'boat',
+            'car',
+            'cat',
+            'dog',
+            'telephone',
+            'duck',
+            'city_skyline',
+            'still_life',
+            'bed',
+            'headphones',
+            'skull',
+            'photo_camera',
+            'unknown',
+          ],
+        },
+        'A test schema for image identification response'
+      ),
+    });
+
+    expect(convo.getLastReplyDictField('image_subject_enum')).toBe('cat');
+  }, 180000);
+
+  it('should perform image recognition with convenience methods', async () => {
+    const openaiClient = createClient();
+    const convo = new GptConversation([], {
+      openaiClient,
+      model: GPT_MODEL_VISION,
+    });
+
+    // Load the image ./fixtures/phoenix.png
+    const pngBuffer = readFileSync(join(__dirname, 'fixtures', 'phoenix.png'));
+    const imgDataUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+
+    convo.addImage(
+      'user',
+      'An image submitted by a user, needing identification',
+      imgDataUrl
+    );
     convo.addUserMessage('What is this a picture of?');
 
     await convo.submit(undefined, undefined, {
