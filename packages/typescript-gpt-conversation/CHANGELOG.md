@@ -2,6 +2,10 @@
 
 All notable changes to this package will be documented in this file.
 
+## 1.2.0 - 2026-03-04
+
+- Keep TypeScript version in sync with Python package `1.2.0`.
+
 ## 1.1.1 - 2026-03-04
 
 - Initial release as a standalone package, split out from the mdi-llmkit monorepo.

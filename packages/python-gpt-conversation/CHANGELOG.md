@@ -2,6 +2,10 @@
 
 All notable changes to this package will be documented in this file.
 
+## 1.2.0 - 2026-03-04
+
+- Fixed syntax error in `test_integration.py` where the opening `{` was missing from the `JSONSchemaFormat` dict argument.
+
 ## 1.1.1 - 2026-03-04
 
 - Initial release as a standalone package, split out from the mdi-llmkit monorepo.
