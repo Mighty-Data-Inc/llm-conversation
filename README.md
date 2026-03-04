@@ -1,7 +1,8 @@
-# mdi-llmkit
-Utilities for managing multi-shot conversations and structured data handling in LLM applications
+# gpt-conversation
 
-This repo contains shared, production-focused helpers we use at **Mighty Data Inc.** for building reliable LLM applications without rewriting the same plumbing in every project.
+Utilities for managing multi-shot LLM conversations and structured JSON responses with OpenAI's Responses API.
+
+This repo contains shared, production-focused helpers from **Mighty Data Inc.** for building reliable LLM applications without rewriting the same plumbing in every project.
 
 ## Design goals
 
@@ -12,43 +13,41 @@ This repo contains shared, production-focused helpers we use at **Mighty Data In
 
 This is not a framework — just a clean, reusable toolkit for the parts of LLM integration that tend to get copy-pasted everywhere.
 
-## Packages in this monorepo
+## Packages
 
-- TypeScript package: `mdi-llmkit` (npm) in `packages/typescript-mdi-llmkit`
-- Python package: `mdi-llmkit` (PyPI, import as `mdi_llmkit`) in `packages/python-mdi-llmkit`
+- TypeScript: `@mdi/gpt-conversation` (npm) in `packages/typescript-gpt-conversation`
+- Python: `gpt-conversation` (PyPI, import as `gpt_conversation`) in `packages/python-gpt-conversation`
 
 Package-specific docs:
 
-- TypeScript: [packages/typescript-mdi-llmkit/README.md](packages/typescript-mdi-llmkit/README.md)
-- Python: [packages/python-mdi-llmkit/README.md](packages/python-mdi-llmkit/README.md)
+- TypeScript: [packages/typescript-gpt-conversation/README.md](packages/typescript-gpt-conversation/README.md)
+- Python: [packages/python-gpt-conversation/README.md](packages/python-gpt-conversation/README.md)
 
 ## Feature overview
 
-Shared core capabilities (Python + TypeScript):
+Core capabilities (Python + TypeScript):
 
-- Conversation and multi-message submission helpers
+- Conversation and multi-message submission helpers (`GptConversation` / `gpt_submit`)
 - Structured JSON response support
-- JSON schema helpers for structured output
-- Model-guided JSON editing
-
-TypeScript package also includes:
-
-- Semantic list comparison utilities
+- JSON schema helpers for structured output (`JSONSchemaFormat`)
 
 ## Quick start
 
 ### Python
 
 ```python
-from mdi_llmkit.gpt_api import GptConversation
-from mdi_llmkit.json_surgery import json_surgery
+from gpt_conversation import GptConversation
+
+conversation = GptConversation(openai_client=client)
+reply = conversation.submit_user_message('Say hello.')
+print(reply)
 ```
 
 ### TypeScript
 
 ```ts
 import OpenAI from 'openai';
-import { GptConversation } from 'mdi-llmkit';
+import { GptConversation } from '@mdi/gpt-conversation';
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const conversation = new GptConversation([], { openaiClient: client });
@@ -60,23 +59,19 @@ console.log(reply);
 
 ### Python
 
-From `packages/python-mdi-llmkit`, activate the package venv and run the jsonSurgery tests:
+From `packages/python-gpt-conversation`, activate the package venv and run tests:
 
 ```powershell
 .\venv\Scripts\Activate.ps1
 python -c "import sys; print(sys.executable)"
-python -m unittest tests/test_placemarked_json.py tests/test_json_surgery.py
+python -m unittest discover -v -s tests
 ```
 
-Live `json_surgery` integration tests (real API) require `OPENAI_API_KEY`:
-
-```powershell
-python -m unittest tests/test_json_surgery.py
-```
+Live integration tests (real API) require `OPENAI_API_KEY` in your environment.
 
 ### TypeScript
 
-From `packages/typescript-mdi-llmkit`, install dependencies and run tests/build:
+From `packages/typescript-gpt-conversation`, install dependencies and run tests/build:
 
 ```powershell
 npm ci
@@ -88,17 +83,13 @@ npm run build
 
 Some tests intentionally call the real OpenAI API instead of mocking model responses.
 
-This is by design for AI-driven features (for example JSON editing and semantic comparison):
-
-- We need to validate prompt behavior against the real model, not just our wrapper code.
-- The core contract includes prompt wording + parsing logic + model output shape working together.
-- Mock-only tests cannot verify whether production prompts still elicit the required behavior.
+This is by design: the core contract includes prompt wording, output parsing, and model behavior working together. Mock-only tests cannot verify whether production prompts still elicit the required structured output.
 
 These tests do have tradeoffs:
 
 - They require `OPENAI_API_KEY` in the test environment.
-- They incur small API cost when run.
-- They can be slower than pure unit tests, though concurrent execution reduces this significantly.
+- They incur a small API cost when run.
+- They can be slower than pure unit tests.
 
 Deterministic assertions are still intentional here: tests are written with tightly scoped instructions and clearly defined JSON outcomes, so stable structured output is treated as a baseline requirement. If those tests fail, we treat it as a bug in prompt design, output handling, or integration behavior.
 
@@ -106,53 +97,23 @@ Deterministic assertions are still intentional here: tests are written with tigh
 
 This repo ships two public packages with aligned versions:
 
-- npm: `mdi-llmkit` from `packages/typescript-mdi-llmkit`
-- PyPI: `mdi-llmkit` from `packages/python-mdi-llmkit`
+- npm: `@mdi/gpt-conversation` from `packages/typescript-gpt-conversation`
+- PyPI: `gpt-conversation` from `packages/python-gpt-conversation`
 
 GitHub release automation publishes each package automatically on push to `main`
 when its package version changes:
 
-- TypeScript checks `packages/typescript-mdi-llmkit/package.json`
-- Python checks `packages/python-mdi-llmkit/pyproject.toml`
+- TypeScript checks `packages/typescript-gpt-conversation/package.json`
+- Python checks `packages/python-gpt-conversation/pyproject.toml`
 
-Before publishing:
+Before publishing, ensure both versions are updated (`package.json` and `pyproject.toml`), then authenticate once locally:
 
-- Ensure both versions are updated (`package.json` and `pyproject.toml`).
-- Authenticate once locally:
-	- npm: `npm login`
-	- PyPI: `python -m twine upload --repository pypi dist/*` (token prompt) or configure `~/.pypirc`
-
-Optional manual preflight check (also run automatically by release scripts):
-
-```powershell
-.\scripts\release-preflight.ps1
-```
-
-From repo root, use the release scripts:
-
-```powershell
-.\scripts\release-typescript.ps1
-```
-
-```powershell
-.\scripts\release-python.ps1
-```
-
-Or publish both, TypeScript first then Python:
-
-```powershell
-.\scripts\release-all.ps1
-```
-
-Each script has built-in PowerShell help:
-
-```powershell
-Get-Help .\scripts\release-all.ps1 -Full
-```
+- npm: `npm login`
+- PyPI: configure `~/.pypirc` or use `python -m twine upload --repository pypi dist/*`
 
 After publish, tag and push a release tag (example):
 
 ```powershell
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.1.3
+git push origin v1.1.3
 ```

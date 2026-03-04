@@ -1,27 +1,20 @@
-# mdi-llmkit
+# gpt-conversation
 
-Utilities for managing LLM chat conversations and structured JSON responses with OpenAI's Responses API.
+Utilities for managing multi-shot LLM conversations and structured JSON responses with OpenAI's Responses API.
 
 ## Installation
 
 ```bash
-pip install mdi-llmkit
+pip install gpt-conversation
 ```
 
 ## Quick Start
-
-Preferred subpackage imports:
-
-```python
-from mdi_llmkit.gpt_api import GptConversation
-from mdi_llmkit.json_surgery import json_surgery
-```
 
 ### `gpt_submit`
 
 ```python
 from openai import OpenAI
-from mdi_llmkit.gpt_api import gpt_submit
+from gpt_conversation import gpt_submit
 
 client = OpenAI()
 
@@ -36,7 +29,7 @@ print(reply)
 
 ```python
 from openai import OpenAI
-from mdi_llmkit.gpt_api import GptConversation
+from gpt_conversation import GptConversation
 
 client = OpenAI()
 conversation = GptConversation(openai_client=client)
@@ -49,7 +42,7 @@ print(reply)
 
 ```python
 from openai import OpenAI
-from mdi_llmkit.gpt_api import gpt_submit
+from gpt_conversation import gpt_submit
 
 client = OpenAI()
 
@@ -63,94 +56,47 @@ print(type(result))  # dict or list
 print(result)
 ```
 
-## JSON Surgery
+## `JSONSchemaFormat`
 
 ```python
 from openai import OpenAI
-from mdi_llmkit.json_surgery import json_surgery
+from gpt_conversation import gpt_submit, json_schema_format, JSON_INTEGER
 
 client = OpenAI()
 
-obj = {"status": "pending", "tags": ["alpha"]}
-result = json_surgery(
-    client,
-    obj,
-    'Set status to "approved" and append "done" to tags.',
+response_format = json_schema_format(
+    "answer_payload",
+    {
+        "answer": "The final answer",
+        "confidence": ["Confidence score", [0, 100], []],
+        "rank": JSON_INTEGER,
+    },
+    "Structured answer payload",
 )
 
+result = gpt_submit(
+    messages=[{"role": "user", "content": "Return answer as structured JSON."}],
+    openai_client=client,
+    json_response=response_format,
+)
 print(result)
 ```
 
-Placemark helpers are available in `mdi_llmkit.json_surgery.placemarked_json`:
+## Local dev (Windows)
 
-- `placemarked_json_stringify(obj, indent=2, skipped_keys=None)`
-- `navigate_to_json_path(obj, json_path)`
-
-## Semantic List Comparison (`compare_item_lists`)
-
-Use `compare_item_lists` when you need to compare a `before` list and an `after`
-list and classify items as removed, added, renamed, or unchanged. This uses AI to resolve semantic renames that would otherwise appear as unrelated remove/add pairs in strict string comparison.
-
-```python
-from openai import OpenAI
-from mdi_llmkit.semantic_match import compare_item_lists
-
-client = OpenAI()
-
-result = compare_item_lists(
-    client,
-    ["Legacy Plan", "Shared Item"],
-    ["Modern Plan", "shared item"],
-    (
-        "Legacy Plan was renamed to Modern Plan. "
-        "Shared Item is unchanged."
-    ),
-)
-
-print(result)
-# [
-#   {
-#     "item": "Legacy Plan",
-#     "classification": "renamed",
-#     "new_name": "Modern Plan",
-#   },
-#   {
-#     "item": "Shared Item",
-#     "classification": "unchanged",
-#     "new_name": None,
-#   },
-# ]
-```
-
-Accepted input item formats:
-
-- String item name: `"Item Name"`
-- Object with optional context: `{"name": "Item Name", "description": "..."}`
-
-Notes:
-
-- Name matching is case-insensitive for exact unchanged detection.
-- Names should be unique within each input list (case-insensitive).
-- Optional `description` is context-only and does not define identity.
-
-## Local Dev (Windows venv)
-
-From `packages/python-mdi-llmkit`, activate the project venv and run tests:
+From `packages/python-gpt-conversation`, activate the package venv and run tests:
 
 ```powershell
 .\venv\Scripts\Activate.ps1
 python -c "import sys; print(sys.executable)"
-python -m unittest tests/test_placemarked_json.py tests/test_json_surgery_unit.py
+python -m unittest discover -v -s tests
 ```
 
-Live `json_surgery` integration tests (real API) require `OPENAI_API_KEY`:
-
-```powershell
-python -m unittest tests/test_json_surgery.py
-```
+Live integration tests (real API) require `OPENAI_API_KEY` in your environment.
 
 ## Notes
 
-- Package name for `pip install` is `mdi-llmkit`.
-- Python import package is `mdi_llmkit`.
+- Package name for `pip install` is `gpt-conversation`.
+- Python import package is `gpt_conversation`.
 - `gpt_submit` supports optional warning reporting via `warning_callback`.
+
