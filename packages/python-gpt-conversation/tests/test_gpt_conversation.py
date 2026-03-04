@@ -261,7 +261,7 @@ class TestSubmissionWorkflow(GptConversationFrameworkBase):
         client = self.make_client()
         conversation = self.make_conversation(client=client, model="gpt-instance")
 
-        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+        with patch("mightydatainc_gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
             mock_submit.return_value = "reply"
 
             result = conversation.submit()
@@ -280,7 +280,7 @@ class TestSubmissionWorkflow(GptConversationFrameworkBase):
         client = self.make_client()
         conversation = self.make_conversation(client=client, model="gpt-instance")
 
-        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+        with patch("mightydatainc_gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
             mock_submit.return_value = "reply"
             conversation.submit(model="gpt-explicit")
 
@@ -290,7 +290,7 @@ class TestSubmissionWorkflow(GptConversationFrameworkBase):
         client = self.make_client()
         conversation = self.make_conversation(client=client, model=None)
 
-        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+        with patch("mightydatainc_gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
             mock_submit.return_value = "reply"
             conversation.submit()
 
@@ -300,7 +300,7 @@ class TestSubmissionWorkflow(GptConversationFrameworkBase):
         client = self.make_client()
         conversation = self.make_conversation(messages=[], client=client)
 
-        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+        with patch("mightydatainc_gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
             mock_submit.return_value = "assistant reply"
             result = conversation.submit(message="hello")
 
@@ -322,7 +322,7 @@ class TestSubmissionWorkflow(GptConversationFrameworkBase):
             "content": "Return JSON only.",
         }
 
-        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+        with patch("mightydatainc_gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
             mock_submit.return_value = {"ok": True}
             result = conversation.submit(message=message, role=None)
 
@@ -351,7 +351,7 @@ class TestSubmissionWorkflow(GptConversationFrameworkBase):
             ],
         }
 
-        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+        with patch("mightydatainc_gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
             mock_submit.return_value = "Nice image!"
             result = conversation.submit(message=message, role=None)
 
@@ -384,7 +384,7 @@ class TestSubmissionWorkflow(GptConversationFrameworkBase):
         }
         explicit_json_response = {"format": {"type": "json_schema"}}
 
-        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+        with patch("mightydatainc_gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
             mock_submit.return_value = "ok"
             conversation.submit(
                 message=message,
@@ -403,7 +403,7 @@ class TestSubmissionWorkflow(GptConversationFrameworkBase):
         conversation = self.make_conversation(messages=[], client=client)
         img_url = "data:image/png;base64,abc123"
 
-        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+        with patch("mightydatainc_gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
             mock_submit.return_value = "Nice image!"
             result = conversation.submit_image("user", "Describe this.", img_url)
 
@@ -426,7 +426,7 @@ class TestSubmissionWorkflow(GptConversationFrameworkBase):
         client = self.make_client()
         conversation = self.make_conversation(messages=[], client=client)
 
-        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+        with patch("mightydatainc_gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
             mock_submit.side_effect = ["r1", "r2", "r3", "r4", "r5"]
 
             self.assertEqual(conversation.submit_message("system", "m1"), "r1")
@@ -504,7 +504,7 @@ class TestErrorPaths(GptConversationFrameworkBase):
             messages=list(initial_messages), client=client
         )
 
-        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+        with patch("mightydatainc_gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
             mock_submit.side_effect = RuntimeError("boom")
             with self.assertRaises(RuntimeError):
                 conversation.submit()
@@ -516,7 +516,7 @@ class TestErrorPaths(GptConversationFrameworkBase):
         client = self.make_client()
         conversation = self.make_conversation(messages=[], client=client)
 
-        with patch("gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
+        with patch("mightydatainc_gpt_conversation.gpt_conversation.gpt_submit") as mock_submit:
             mock_submit.return_value = "reply"
             conversation.submit(message="")
 

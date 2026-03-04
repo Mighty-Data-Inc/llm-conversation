@@ -2,6 +2,10 @@
 
 All notable changes to this package will be documented in this file.
 
+## 1.3.2 - 2026-03-04
+
+- Fixed remaining `patch()` target strings in `test_gpt_submit.py` that still referenced the old `gpt_conversation` module name.
+
 ## 1.3.1 - 2026-03-04
 
 - Version bump to trigger a CI/CD pipeline test run.

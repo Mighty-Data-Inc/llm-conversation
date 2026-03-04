@@ -2,6 +2,10 @@
 
 All notable changes to this package will be documented in this file.
 
+## 1.3.2 - 2026-03-04
+
+- Fixed npm publish workflow to remove stale `NPM_TOKEN` that was overriding the OIDC trusted publisher authentication.
+
 ## 1.3.1 - 2026-03-04
 
 - Version bump to trigger a CI/CD pipeline test run.
