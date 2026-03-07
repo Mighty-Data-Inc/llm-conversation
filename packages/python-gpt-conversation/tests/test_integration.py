@@ -8,6 +8,7 @@ import base64
 import json
 import os
 import sys
+from typing import Any, Dict, List
 import unittest
 from pathlib import Path
 
@@ -319,73 +320,77 @@ even if the count for some letters is zero.
 """
         )
         convo.add_user_message("strawberry milkshake")
-        convo.submit(
-            shotgun=6,  # This is a known flaky prompt, so we use shotgun to increase reliability.
-            json_response=JSONSchemaFormat(
-                {
-                    "a": int,
-                    "b": int,
-                    "c": int,
-                    "d": int,
-                    "e": int,
-                    "f": int,
-                    "g": int,
-                    "h": int,
-                    "i": int,
-                    "j": int,
-                    "k": int,
-                    "l": int,
-                    "m": int,
-                    "n": int,
-                    "o": int,
-                    "p": int,
-                    "q": int,
-                    "r": int,
-                    "s": int,
-                    "t": int,
-                    "u": int,
-                    "v": int,
-                    "w": int,
-                    "x": int,
-                    "y": int,
-                    "z": int,
-                }
+
+        formatparam: Dict[str, Any] = {
+            "scratchpad": (
+                str,
+                (
+                    "An internal deliberation you can have with yourself about how to best answer "
+                    "the question. Use this as a whiteboard to work through your reasoning process. "
+                    "PRO TIP: Be very careful to not count any position twice. If you find that "
+                    "you're counting one letter for position n, and then counting another letter "
+                    "for position n, then one or both must be wrong."
+                ),
             ),
-        )
+        }
+
+        # Iterate a-z and add each letter as a key with the value "int".
+        for letter in "abcdefghijklmnopqrstuvwxyz":
+            formatparam[letter] = {
+                "count": int,
+                "locations": (
+                    str,
+                    (
+                        "An explicit list of the places where you found this letter. "
+                        "It should describe <count> distinct locations in the key phrase "
+                        "where this letter appears. Actually write out the text at the "
+                        "locations to prove that you found them, like this: "
+                        '[position 2, the first "o" in "foo": f *o* o], '
+                        '[position 3, the second "o" in "foo": f o *o*], '
+                    ),
+                ),
+            }
+
+        # Without shotgunning, this fails >90% of the time.
+        # Notably, it fails a *different* way each time.
+        # Because of this multivariate leverage, the shotgun approach
+        # is astronomically more likely to get a perfect answer than
+        # any single attempt is on its own.
+        # It's a lot of barrels, but we can't let this test be flaky.
+        convo.submit(shotgun=6, json_response=JSONSchemaFormat(formatparam))
 
         reply = convo.get_last_reply_dict()
-        print(json.dumps(reply, indent=2))
 
-        # Make sure it has 26 keys.
-        self.assertEqual(len(reply), 26)
+        # Make sure it has all 26 letters plus the discussion field.
+        self.assertEqual(len(reply), 27)
 
         # strawberry milkshake
         # s(2) t(1) r(3) a(2) w(1) b(1) e(2) y(1) m(1) i(1) l(1) k(2) h(1)
-        self.assertEqual(reply.get("a"), 2)
-        self.assertEqual(reply.get("b"), 1)
-        self.assertEqual(reply.get("c"), 0)
-        self.assertEqual(reply.get("d"), 0)
-        self.assertEqual(reply.get("e"), 2)
-        self.assertEqual(reply.get("f"), 0)
-        self.assertEqual(reply.get("g"), 0)
-        self.assertEqual(reply.get("h"), 1)
-        self.assertEqual(reply.get("i"), 1)
-        self.assertEqual(reply.get("k"), 2)
-        self.assertEqual(reply.get("l"), 1)
-        self.assertEqual(reply.get("m"), 1)
-        self.assertEqual(reply.get("n"), 0)
-        self.assertEqual(reply.get("o"), 0)
-        self.assertEqual(reply.get("p"), 0)
-        self.assertEqual(reply.get("q"), 0)
-        self.assertEqual(reply.get("r"), 3)
-        self.assertEqual(reply.get("s"), 2)
-        self.assertEqual(reply.get("t"), 1)
-        self.assertEqual(reply.get("u"), 0)
-        self.assertEqual(reply.get("v"), 0)
-        self.assertEqual(reply.get("w"), 1)
-        self.assertEqual(reply.get("x"), 0)
-        self.assertEqual(reply.get("y"), 1)
-        self.assertEqual(reply.get("z"), 0)
+        self.assertEqual(reply["a"]["count"], 2)
+        self.assertEqual(reply["b"]["count"], 1)
+        self.assertEqual(reply["c"]["count"], 0)
+        self.assertEqual(reply["d"]["count"], 0)
+        self.assertEqual(reply["e"]["count"], 2)
+        self.assertEqual(reply["f"]["count"], 0)
+        self.assertEqual(reply["g"]["count"], 0)
+        self.assertEqual(reply["h"]["count"], 1)
+        self.assertEqual(reply["i"]["count"], 1)
+        self.assertEqual(reply["k"]["count"], 2)
+        self.assertEqual(reply["l"]["count"], 1)
+        self.assertEqual(reply["m"]["count"], 1)
+        self.assertEqual(reply["n"]["count"], 0)
+        self.assertEqual(reply["o"]["count"], 0)
+        self.assertEqual(reply["p"]["count"], 0)
+        self.assertEqual(reply["q"]["count"], 0)
+        self.assertEqual(reply["r"]["count"], 3)
+        self.assertEqual(reply["s"]["count"], 2)
+        self.assertEqual(reply["t"]["count"], 1)
+        self.assertEqual(reply["u"]["count"], 0)
+        self.assertEqual(reply["v"]["count"], 0)
+        self.assertEqual(reply["w"]["count"], 1)
+        self.assertEqual(reply["x"]["count"], 0)
+        self.assertEqual(reply["y"]["count"], 1)
+        self.assertEqual(reply["z"]["count"], 0)
 
 
 if __name__ == "__main__":

@@ -22,31 +22,30 @@ const createClient = (): OpenAI =>
   });
 
 const IMAGE_IDENTIFICATION_SCHEMA = JSONSchemaFormat(
-    {
-        "image_subject_enum": [
-            "house",
-            "chair",
-            "boat",
-            "car",
-            "cat",
-            "dog",
-            "telephone",
-            "duck",
-            "city_skyline",
-            "still_life",
-            "bed",
-            "headphones",
-            "skull",
-            "photo_camera",
-            "unknown",
-            "none",
-            "error",
-        ],
-    },
-    'ImageIdentification',
-    'A test schema for image identification response'
-)
-
+  {
+    image_subject_enum: [
+      'house',
+      'chair',
+      'boat',
+      'car',
+      'cat',
+      'dog',
+      'telephone',
+      'duck',
+      'city_skyline',
+      'still_life',
+      'bed',
+      'headphones',
+      'skull',
+      'photo_camera',
+      'unknown',
+      'none',
+      'error',
+    ],
+  },
+  'ImageIdentification',
+  'A test schema for image identification response'
+);
 
 describe('integration tests (live API)', () => {
   it('should repeat Hello World', async () => {
@@ -303,4 +302,110 @@ Nested dict (1 item long):
 
     expect(convo.getLastReplyDictField('image_subject_enum')).toBe('cat');
   }, 180000);
+
+  it('should use shotgun to get a reliable answer on an unreliable question', async () => {
+    const openaiClient = createClient();
+    const convo = new GptConversation([], { openaiClient });
+
+    convo.addDeveloperMessage(`
+Count the number of times each letter of the alphabet appears in a key phrase
+that the user will give you.
+
+Ignore spaces, and treat all letters as lowercase for counting purposes.
+Do not count any characters other than the 26 letters of the English alphabet.
+
+Return a JSON object where each key is a lowercase letter and each
+value is the integer count of that letter. Include only letters that appear at least
+once. Emit nothing except the JSON object. E.g. it should look like this:
+
+{
+  "a": 99,
+  "b": 99,
+  "c": 99,
+  ...
+}
+
+Except, of course, with the correct counts for the letters instead of "99".
+Your response should include all 26 keys, appearing in order from "a" to "z",
+even if the count for some letters is zero.
+`);
+    convo.addUserMessage('strawberry milkshake');
+
+    const formatparam: Record<string, unknown> = {
+      scratchpad: [
+        String,
+        'An internal deliberation you can have with yourself about how to best answer ' +
+          'the question. Use this as a whiteboard to work through your reasoning process. ' +
+          'PRO TIP: Be very careful to not count any position twice. If you find that ' +
+          "you're counting one letter for position n, and then counting another letter " +
+          'for position n, then one or both must be wrong.',
+      ],
+    };
+
+    for (const letter of 'abcdefghijklmnopqrstuvwxyz') {
+      formatparam[letter] = {
+        count: Number,
+        locations: [
+          String,
+          'An explicit list of the places where you found this letter. ' +
+            'It should describe <count> distinct locations in the key phrase ' +
+            'where this letter appears. Actually write out the text at the ' +
+            'locations to prove that you found them, like this: ' +
+            '[position 2, the first "o" in "foo": f *o* o], ' +
+            '[position 3, the second "o" in "foo": f o *o*], ',
+        ],
+      };
+    }
+
+    // Without shotgunning, this fails >90% of the time.
+    // Notably, it fails a *different* way each time.
+    // Because of this multivariate leverage, the shotgun approach
+    // is astronomically more likely to get a perfect answer than
+    // any single attempt is on its own.
+    // It's a lot of barrels, but we can't let this test be flaky.
+    await convo.submit(undefined, undefined, {
+      shotgun: 6,
+      jsonResponse: JSONSchemaFormat(
+        formatparam,
+        'LetterCount',
+        'Letter count schema'
+      ),
+    });
+
+    const reply = convo.getLastReplyDict() as Record<
+      string,
+      Record<string, number>
+    >;
+
+    // Make sure it has all 26 letters plus the scratchpad field.
+    expect(Object.keys(reply)).toHaveLength(27);
+
+    // strawberry milkshake
+    // s(2) t(1) r(3) a(2) w(1) b(1) e(2) y(1) m(1) i(1) l(1) k(2) h(1)
+    expect(reply['a'].count).toBe(2);
+    expect(reply['b'].count).toBe(1);
+    expect(reply['c'].count).toBe(0);
+    expect(reply['d'].count).toBe(0);
+    expect(reply['e'].count).toBe(2);
+    expect(reply['f'].count).toBe(0);
+    expect(reply['g'].count).toBe(0);
+    expect(reply['h'].count).toBe(1);
+    expect(reply['i'].count).toBe(1);
+    expect(reply['k'].count).toBe(2);
+    expect(reply['l'].count).toBe(1);
+    expect(reply['m'].count).toBe(1);
+    expect(reply['n'].count).toBe(0);
+    expect(reply['o'].count).toBe(0);
+    expect(reply['p'].count).toBe(0);
+    expect(reply['q'].count).toBe(0);
+    expect(reply['r'].count).toBe(3);
+    expect(reply['s'].count).toBe(2);
+    expect(reply['t'].count).toBe(1);
+    expect(reply['u'].count).toBe(0);
+    expect(reply['v'].count).toBe(0);
+    expect(reply['w'].count).toBe(1);
+    expect(reply['x'].count).toBe(0);
+    expect(reply['y'].count).toBe(1);
+    expect(reply['z'].count).toBe(0);
+  }, 360000);
 });

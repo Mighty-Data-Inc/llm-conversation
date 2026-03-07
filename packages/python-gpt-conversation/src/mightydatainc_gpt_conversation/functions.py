@@ -309,13 +309,14 @@ def _gpt_submit_shotgun(
     messages = copy.deepcopy(messages)
 
     def _internal_gpt_submit(
-        messages: list,
+        _messages: list,
+        _json_response: Optional[Union[bool, dict, str]],
     ) -> Union[str, dict, list]:
         return gpt_submit(
-            messages,
+            _messages,
             openai_client,
             model=model,
-            json_response=json_response,
+            json_response=_json_response,
             system_announcement_message=system_announcement_message,
             retry_limit=retry_limit,
             retry_backoff_time_seconds=retry_backoff_time_seconds,
@@ -323,13 +324,14 @@ def _gpt_submit_shotgun(
         )
 
     if num_barrels <= 1:
-        return _internal_gpt_submit(messages)
+        return _internal_gpt_submit(messages, json_response)
 
     # Fire num_barrels identical requests in parallel.
-    barrel_messages = [copy.deepcopy(messages) for _ in range(num_barrels)]
+    barrels = [copy.deepcopy(messages) for _ in range(num_barrels)]
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_barrels) as executor:
         futures = [
-            executor.submit(_internal_gpt_submit, barrel) for barrel in barrel_messages
+            executor.submit(_internal_gpt_submit, barrel_msglist, json_response)
+            for barrel_msglist in barrels
         ]
         results_raw = [f.result() for f in futures]
 
@@ -366,14 +368,25 @@ to examine and reconcile. Think of them as brainstorming or scratchpads.
             "content": """
 Focus on the differences and discrepancies between the workers' responses. Where do they agree?
 Where do they disagree? In the areas where they disagree, which worker's argument is most
-consistent with the data you've been shown? Remember, this is an adjudication, not a democracy --
-you should carefully examine the data presented in the conversation and use your best judgment
-to determine which worker is most likely to be correct.
+consistent with the data you've been shown? 
+
+Remember, this is an adjudication, not a democracy -- you should carefully examine the data
+presented in the conversation and use your best judgment to determine which worker is most
+likely to be correct, even if they're in the minority. Evaluate their answers carefully against
+the source data. If multiple workers produced different answers, then clearly there is something
+subtle, deceptive, or misleading about the question or the data, and you should be especially
+careful to scrutinize the workers' reasoning and the evidence they present for their answers.
+At least one of them must be wrong; don't fall into the same trap he did.
 """,
         }
     )
 
-    ponder_reply = _internal_gpt_submit(reconcile_messages)
+    # This is a chain-of-thought ponderance. We specifically do not want a JSON
+    # response here, because we want the model to be able to freely reason and
+    # draw conclusions without being constrained by JSON syntax. The final answer
+    # will be produced in the next step, where we will ask the model to produce
+    # the same format as it was originally given (text or JSON).
+    ponder_reply = _internal_gpt_submit(reconcile_messages, None)
     reconcile_messages.append({"role": "assistant", "content": ponder_reply})
 
     reconcile_messages.append(
@@ -389,4 +402,4 @@ you've gained from examining the workers' responses.
         }
     )
 
-    return _internal_gpt_submit(reconcile_messages)
+    return _internal_gpt_submit(reconcile_messages, json_response)
