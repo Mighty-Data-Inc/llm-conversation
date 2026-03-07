@@ -11,6 +11,8 @@ including:
 The primary entry point is ``gpt_submit``.
 """
 
+import concurrent.futures
+import copy
 import datetime
 import json
 import openai
@@ -70,6 +72,7 @@ def gpt_submit(
     system_announcement_message: Optional[str] = None,
     retry_limit: Optional[int] = None,
     retry_backoff_time_seconds: Optional[int] = None,
+    shotgun: Optional[int] = None,
     warning_callback: Optional[Callable[[str], None]] = None,
 ) -> Union[str, dict, list]:
     """Submit messages to an OpenAI Responses client with retry handling.
@@ -91,6 +94,11 @@ def gpt_submit(
             before the auto-generated datetime system message.
         retry_limit: Maximum number of attempts for retryable failures.
         retry_backoff_time_seconds: Delay between retries for OpenAI API errors.
+        shotgun: When greater than 1, the request is sent this many times in
+            parallel and the results are reconciled into a single reply. Use
+            this when output quality matters more than latency or cost —
+            higher values yield better answers at the expense of proportionally
+            more API calls. Values of ``None`` or ``1`` behave normally.
         warning_callback: Optional callback for recoverable warning strings
             (non-fatal API warnings and retry notices).
 
@@ -110,6 +118,19 @@ def gpt_submit(
         ValueError: If no attempt runs or no terminal failure is captured.
         AttributeError: If the response object is missing expected attributes.
     """
+    if shotgun and shotgun > 1:
+        return _gpt_submit_shotgun(
+            messages,
+            openai_client,
+            num_barrels=shotgun,
+            model=model,
+            json_response=json_response,
+            system_announcement_message=system_announcement_message,
+            retry_limit=retry_limit,
+            retry_backoff_time_seconds=retry_backoff_time_seconds,
+            warning_callback=warning_callback,
+        )
+
     if not model:
         model = GPT_MODEL_SMART
 
@@ -237,3 +258,128 @@ def gpt_submit(
     if efail:
         raise efail
     raise ValueError("Unknown error occurred in _gpt_helpers")
+
+
+def _gpt_submit_shotgun(
+    messages: list,
+    openai_client: OpenAIClientLike,
+    num_barrels: int,
+    *,
+    model: Optional[str] = None,
+    json_response: Optional[Union[bool, dict, str]] = None,
+    system_announcement_message: Optional[str] = None,
+    retry_limit: Optional[int] = None,
+    retry_backoff_time_seconds: Optional[int] = None,
+    warning_callback: Optional[Callable[[str], None]] = None,
+) -> Union[str, dict, list]:
+    """Submit a conversation using the shotgun strategy for higher-quality replies.
+
+    Fires ``num_barrels`` parallel requests with identical inputs using a thread
+    pool, then asks the model to examine all responses and reconcile them into a
+    single authoritative answer.  This improves output quality for tasks where
+    the model benefits from exploring multiple reasoning paths simultaneously.
+
+    If ``num_barrels`` is 1 or fewer, the function falls back to a single
+    ``gpt_submit`` call with no overhead.
+
+    Args:
+        messages: Message objects in OpenAI-style chat format.
+        openai_client: Client-like object exposing ``responses.create``.
+        num_barrels: Number of parallel worker requests to fire.
+        model: Model name override. Defaults to ``GPT_MODEL_SMART``.
+        json_response: JSON mode selector (same semantics as ``gpt_submit``).
+        system_announcement_message: Optional system message placed before the
+            auto-generated datetime system message.
+        retry_limit: Maximum number of attempts for retryable failures per call.
+        retry_backoff_time_seconds: Delay between retries for OpenAI API errors.
+        warning_callback: Optional callback for recoverable warning strings.
+
+    Returns:
+        The reconciled response from the model — a plain ``str`` in text mode,
+        or a parsed JSON value (``dict`` / ``list``) in JSON mode.
+    """
+    # Work with a copy of the messages list to avoid modifying the caller's object
+    messages = copy.deepcopy(messages)
+
+    def _internal_gpt_submit(
+        messages: list,
+    ) -> Union[str, dict, list]:
+        return gpt_submit(
+            messages,
+            openai_client,
+            model=model,
+            json_response=json_response,
+            system_announcement_message=system_announcement_message,
+            retry_limit=retry_limit,
+            retry_backoff_time_seconds=retry_backoff_time_seconds,
+            warning_callback=warning_callback,
+        )
+
+    if num_barrels <= 1:
+        return _internal_gpt_submit(messages)
+
+    # Fire num_barrels identical requests in parallel.
+    barrel_messages = [copy.deepcopy(messages) for _ in range(num_barrels)]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_barrels) as executor:
+        futures = [
+            executor.submit(_internal_gpt_submit, barrel) for barrel in barrel_messages
+        ]
+        results_raw = [f.result() for f in futures]
+
+    result_strings = [json.dumps(r) for r in results_raw]
+
+    # Build the reconciliation conversation on top of the original messages.
+    reconcile_messages = copy.deepcopy(messages)
+
+    reconcile_messages.append(
+        {
+            "role": "system",
+            "content": f"""
+SYSTEM MESSAGE:
+In order to produce better results, we submitted this request/question/command/etc.
+to {num_barrels} worker threads in parallel.
+The system will now present each of their responses, wrapped in JSON.
+The user or developer will not see these responses -- they are only for you, the assistant,
+to examine and reconcile. Think of them as brainstorming or scratchpads.
+""",
+        }
+    )
+
+    for index, result_string in enumerate(result_strings):
+        reconcile_messages.append(
+            {
+                "role": "system",
+                "content": f"WORKER {index + 1} RESPONSE:\n\n\n{result_string}",
+            }
+        )
+
+    reconcile_messages.append(
+        {
+            "role": "system",
+            "content": """
+Focus on the differences and discrepancies between the workers' responses. Where do they agree?
+Where do they disagree? In the areas where they disagree, which worker's argument is most
+consistent with the data you've been shown? Remember, this is an adjudication, not a democracy --
+you should carefully examine the data presented in the conversation and use your best judgment
+to determine which worker is most likely to be correct.
+""",
+        }
+    )
+
+    ponder_reply = _internal_gpt_submit(reconcile_messages)
+    reconcile_messages.append({"role": "assistant", "content": ponder_reply})
+
+    reconcile_messages.append(
+        {
+            "role": "system",
+            "content": """
+Having seen and reconciled the workers' responses, you are now ready to craft a proper reply to
+the question/request/command/etc. This response that you craft now is the one that will be
+presented to the user or developer -- it should not directly reference the workers' responses,
+but should instead be a fully self-contained and complete answer that draws on the insights
+you've gained from examining the workers' responses.
+""",
+        }
+    )
+
+    return _internal_gpt_submit(reconcile_messages)
