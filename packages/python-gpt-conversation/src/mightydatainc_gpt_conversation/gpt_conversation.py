@@ -61,6 +61,7 @@ class GptConversation(list):
         *,
         model: Optional[str] = None,
         json_response: Optional[Union[bool, dict, str]] = None,
+        shotgun: Optional[int] = None,
     ) -> Any:
         """Submit a message to the OpenAI API and return the response."""
         if not self.openai_client:
@@ -91,6 +92,7 @@ class GptConversation(list):
             openai_client=self.openai_client,
             json_response=json_response,
             model=model,
+            shotgun=shotgun,
         )
 
         self.add_assistant_message(llmreply)
