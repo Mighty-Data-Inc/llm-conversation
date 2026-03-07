@@ -294,7 +294,8 @@ Nested dict (1 item long):
     def test_shotgun_to_get_reliable_answer_on_unreliable_prompt(self):
         """Intentionally flaky without shotgun: LLMs miscount repeated letters.."""
         # Adjust this number as needed to achieve a reliable pass rate.
-        NUM_SHOTGUN_BARRELS = 6
+        # A ridiculous number of barrels but this test needs to be reliable.
+        NUM_SHOTGUN_BARRELS = 10
 
         convo = GptConversation([], openai_client=make_client())
 
