@@ -33,7 +33,7 @@ import OpenAI from 'openai';
 import { GptConversation } from '@mightydatainc/gpt-conversation';
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const conversation = new GptConversation([], { openaiClient: client });
+const conversation = new GptConversation(client);
 
 const reply = await conversation.submitUserMessage(
   'Give me three project name ideas.'
@@ -44,7 +44,11 @@ console.log(reply);
 ### `JSONSchemaFormat`
 
 ```ts
-import { JSONSchemaFormat, JSON_INTEGER, gptSubmit } from '@mightydatainc/gpt-conversation';
+import {
+  JSONSchemaFormat,
+  JSON_INTEGER,
+  gptSubmit,
+} from '@mightydatainc/gpt-conversation';
 
 const responseFormat = JSONSchemaFormat(
   {
