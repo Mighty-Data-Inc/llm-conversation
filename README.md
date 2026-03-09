@@ -1,119 +1,56 @@
 # gpt-conversation
 
-Utilities for managing multi-shot LLM conversations and structured JSON responses with OpenAI's Responses API.
+`gpt-conversation` is a cross-language toolkit for building reliable LLM features with OpenAI's Responses API.
 
-This repo contains shared, production-focused helpers from **Mighty Data Inc.** for building reliable LLM applications without rewriting the same plumbing in every project.
+The project exists to remove repeated integration work from application teams. Instead of re-implementing the same conversation and structured-output patterns in every codebase, this repository provides a shared, production-oriented foundation for Python and TypeScript.
 
-## Design goals
+## Purpose
 
-* Minimal abstractions
-* Predictable behavior
-* Cross-language parity (Python + TypeScript)
-* Easy to drop into real projects
+- Keep LLM integration practical and predictable in real products.
+- Preserve behavioral parity across Python and TypeScript implementations.
+- Emphasize reusable building blocks rather than framework lock-in.
 
-This is not a framework — just a clean, reusable toolkit for the parts of LLM integration that tend to get copy-pasted everywhere.
+## Scope
 
-## Packages
+This repository focuses on the parts of LLM development that are easy to get wrong repeatedly:
 
-- TypeScript: `@mightydatainc/gpt-conversation` (npm) in `packages/typescript-gpt-conversation`
-- Python: `mightydatainc-gpt-conversation` (PyPI, import as `gpt_conversation`) in `packages/python-gpt-conversation`
+- Managing multi-message conversations over time.
+- Working with structured JSON outputs safely.
+- Keeping shared semantics aligned across languages.
 
-Package-specific docs:
+This repository is intentionally not an agent framework, orchestration platform, or full application starter.
 
-- TypeScript: [packages/typescript-gpt-conversation/README.md](packages/typescript-gpt-conversation/README.md)
-- Python: [packages/python-gpt-conversation/README.md](packages/python-gpt-conversation/README.md)
+## Repository Layout
 
-## Feature overview
+- `packages/python-gpt-conversation`: Python package implementation.
+- `packages/typescript-gpt-conversation`: TypeScript package implementation.
 
-Core capabilities (Python + TypeScript):
+Both packages follow the same product intent and are developed together to maintain consistency.
 
-- Conversation and multi-message submission helpers (`GptConversation` / `gpt_submit`)
-- Structured JSON response support
-- JSON schema helpers for structured output (`JSONSchemaFormat`)
+## Design Principles
 
-## Quick start
+- Minimal, composable abstractions.
+- Explicit behavior and stable contracts.
+- Production-first defaults.
+- Language parity where it matters most.
 
-### Python
+## API Documentation
 
-```python
-from gpt_conversation import GptConversation
+The root README describes intent and project-level context.
 
-conversation = GptConversation(openai_client=client)
-reply = conversation.submit_user_message('Say hello.')
-print(reply)
-```
+For package usage, API reference, and language-specific setup, see:
 
-### TypeScript
+- `packages/python-gpt-conversation/README.md`
+- `packages/typescript-gpt-conversation/README.md`
 
-```ts
-import OpenAI from 'openai';
-import { GptConversation } from '@mightydatainc/gpt-conversation';
+## Quality and Reliability
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const conversation = new GptConversation([], { openaiClient: client });
-const reply = await conversation.submitUserMessage('Say hello.');
-console.log(reply);
-```
+The project prioritizes practical correctness over synthetic demos. Package-level test suites are designed to protect real integration behavior, including structured-output workflows.
 
-## Local dev (Windows)
+## Releases
 
-### Python
+Python and TypeScript packages are versioned and released from this monorepo using repository automation. Release mechanics are kept with each package and workflow configuration.
 
-From `packages/python-gpt-conversation`, activate the package venv and run tests:
+## License
 
-```powershell
-.\.venv\Scripts\Activate.ps1
-python -c "import sys; print(sys.executable)"
-python -m unittest discover -v -s tests
-```
-
-Live integration tests (real API) require `OPENAI_API_KEY` in your environment.
-
-### TypeScript
-
-From `packages/typescript-gpt-conversation`, install dependencies and run tests/build:
-
-```powershell
-npm ci
-npm test
-npm run build
-```
-
-## Unit testing with live API calls
-
-Some tests intentionally call the real OpenAI API instead of mocking model responses.
-
-This is by design: the core contract includes prompt wording, output parsing, and model behavior working together. Mock-only tests cannot verify whether production prompts still elicit the required structured output.
-
-These tests do have tradeoffs:
-
-- They require `OPENAI_API_KEY` in the test environment.
-- They incur a small API cost when run.
-- They can be slower than pure unit tests.
-
-Deterministic assertions are still intentional here: tests are written with tightly scoped instructions and clearly defined JSON outcomes, so stable structured output is treated as a baseline requirement. If those tests fail, we treat it as a bug in prompt design, output handling, or integration behavior.
-
-## Release process
-
-This repo ships two public packages with aligned versions:
-
-- npm: `@mightydatainc/gpt-conversation` from `packages/typescript-gpt-conversation`
-- PyPI: `mightydatainc-gpt-conversation` from `packages/python-gpt-conversation`
-
-GitHub release automation publishes each package automatically on push to `main`
-when its package version changes:
-
-- TypeScript checks `packages/typescript-gpt-conversation/package.json`
-- Python checks `packages/python-gpt-conversation/pyproject.toml`
-
-Before publishing, ensure both versions are updated (`package.json` and `pyproject.toml`), then authenticate once locally:
-
-- npm: `npm login`
-- PyPI: configure `~/.pypirc` or use `python -m twine upload --repository pypi dist/*`
-
-After publish, tag and push a release tag (example):
-
-```powershell
-git tag v1.1.1
-git push origin v1.1.1
-```
+MIT. See `LICENSE`.
