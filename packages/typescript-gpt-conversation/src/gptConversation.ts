@@ -138,8 +138,7 @@ export class GptConversation extends Array<ConversationMessage> {
 
   /**
    * Returns a deep clone of this conversation, including all messages,
-   * the current `openaiClient`, and the current `model`. The `lastReply` is
-   * not copied.
+   * member values, and the `openaiClient` reference.
    *
    * @returns A new `GptConversation` instance with the same history and
    *   configuration.
@@ -165,14 +164,17 @@ export class GptConversation extends Array<ConversationMessage> {
   }
 
   /**
+   * Submits the conversation history to the OpenAI API. Automatically appends
+   * the response to the conversation as an `"assistant"` message and updates
+   * `lastReply` to the new content.
+   *
    * Optionally appends a message to the conversation, then submits the full
    * history to the OpenAI API and appends the assistant's reply.
    *
-   * When `message` is a `Record` with a `format` key and `jsonResponse` is
-   * not already set, it is interpreted as a JSON schema format descriptor and
-   * used as `jsonResponse`. When it has a `role` key and `role` is `null`,
-   * that role is used for the message. When it has a `content` key, only that
-   * content is added to the history.
+   * When `message` is a `Record` with `jsonResponse` key, it is interpreted as a
+   * JSON schema format descriptor and used as `jsonResponse`. When it has a
+   * `role` key, that role is used for the message. When it has a `content` key,
+   * only that content is added to the history.
    *
    * @param message - An optional message to append before submitting. May be
    *   a plain string, a content record, or omitted to submit the existing
