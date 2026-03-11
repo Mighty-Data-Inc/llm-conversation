@@ -1,6 +1,5 @@
 import {
   currentDatetimeSystemMessage,
-  isRecord,
   parseFirstJsonValue,
 } from './helpers.js';
 import {
@@ -202,13 +201,13 @@ instead of em-dashes or en-dashes; use straight quotes (") and single quotes (')
  * @throws The last encountered error after all retry attempts are exhausted,
  *   or immediately for non-retryable errors.
  */
-export async function llmSubmit(
+export const llmSubmit = async (
   messages: unknown[],
   aiClient: AIClientLike,
   options: LLMSubmitOptions = {}
 ): Promise<
   string | Record<string, unknown> | unknown[] | number | boolean | null
-> {
+> => {
   if (options.shotgun && options.shotgun > 1) {
     return await llmSubmitShotgun(messages, aiClient, options, options.shotgun);
   }
@@ -330,4 +329,4 @@ export async function llmSubmit(
   }
 
   throw new Error('Unknown error occurred in gptSubmit');
-}
+};
