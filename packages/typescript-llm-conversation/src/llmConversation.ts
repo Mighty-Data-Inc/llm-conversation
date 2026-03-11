@@ -415,7 +415,19 @@ export class LLMConversation extends Array<ConversationMessage> {
    */
   getLastReplyDict(): Record<string, unknown> {
     try {
-      return JSON.parse(JSON.stringify(this.lastReply));
+      const retval: any = JSON.parse(JSON.stringify(this.lastReply));
+
+      // Test to make sure that the result is actually a record and not something else
+      // like an array or a primitive value.
+      if (
+        typeof retval === 'object' &&
+        retval !== null &&
+        !Array.isArray(retval)
+      ) {
+        return retval;
+      } else {
+        return {};
+      }
     } catch (JSONError) {
       return {};
     }

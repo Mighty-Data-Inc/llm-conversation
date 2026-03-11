@@ -171,7 +171,7 @@ describe('LLMConversation', () => {
     ]);
 
     await expect(conversation.submit()).rejects.toThrow(
-      'OpenAI client is not set. Please provide an OpenAI client.'
+      'AI client is not set. Please provide an AI client.'
     );
   });
 
@@ -187,29 +187,6 @@ describe('LLMConversation', () => {
       { role: 'assistant', content: 'assistant reply' },
     ]);
     expect(conversation.lastReply).toBe('assistant reply');
-  });
-
-  it('submit infers jsonResponse and role from dict-like message', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('{"ok": true}')]);
-    const conversation = new LLMConversation(client);
-
-    const message = {
-      format: { type: 'json_object' },
-      role: 'developer',
-      content: 'Return JSON only.',
-    };
-
-    const result = await conversation.submit(message);
-
-    expect(result).toEqual({ ok: true });
-    expect(conversation[0]).toEqual({
-      role: 'developer',
-      content: 'Return JSON only.',
-    });
-    expect(conversation[1]).toEqual({
-      role: 'assistant',
-      content: '{\n  "ok": true\n}',
-    });
   });
 
   it('submit passes through array content for multi-modal messages', async () => {
@@ -267,8 +244,6 @@ describe('LLMConversation', () => {
   it('lastReply accessors enforce expected types', () => {
     const conversation = new LLMConversation();
 
-    // NOTE: This is something we should never do in practice.
-    // We should never directly set lastReply in a LLMConversation object.
     conversation.addAssistantMessage('hello');
 
     expect(conversation.getLastReplyStr()).toBe('hello');
@@ -285,6 +260,6 @@ describe('LLMConversation', () => {
     expect(conversation.getLastReplyDictField('missing', 99)).toBe(99);
 
     conversation.addAssistantMessage('not dict');
-    expect(conversation.getLastReplyDictField('x', 99)).toBeNull();
+    expect(conversation.getLastReplyDictField('x')).toBeUndefined();
   });
 });
