@@ -3,19 +3,19 @@ import {
   isRecord,
   parseFirstJsonValue,
 } from './helpers.js';
-import { OpenAIClientLike } from './llmProviders.js';
-
-export const GPT_MODEL_CHEAP = 'gpt-4.1-nano';
-export const GPT_MODEL_SMART = 'gpt-4.1';
-export const GPT_MODEL_VISION = 'gpt-4.1';
-
-const GPT_RETRY_LIMIT_DEFAULT = 5;
-const GPT_RETRY_BACKOFF_TIME_SECONDS_DEFAULT = 30;
+import {
+  AIClientLike,
+  getModelName,
+  identifyLLMProvider,
+  LLM_RETRY_BACKOFF_TIME_SECONDS_DEFAULT,
+  LLM_RETRY_LIMIT_DEFAULT,
+} from './llmProviders.js';
 
 /**
- * Options controlling the behaviour of {@link gptSubmit}.
+ * Options controlling the behaviour of {@link llmSubmit}.
  *
- * @property model - The OpenAI model ID to use. Defaults to {@link GPT_MODEL_SMART}.
+ * @property model - The model ID to use. If not specified, defaults to the "smart"
+ *   tier model for the detected LLM provider (e.g. `gpt-4.1` for OpenAI).
  * @property jsonResponse - When `true`, requests a plain JSON object response.
  *   When a `Record` or JSON string, that value is forwarded as the `text` format
  *   parameter (i.e. a JSON schema). Defaults to `undefined` (plain text).
@@ -24,13 +24,13 @@ const GPT_RETRY_BACKOFF_TIME_SECONDS_DEFAULT = 30;
  * @property retryLimit - Maximum number of retry attempts on recoverable errors.
  *   Defaults to {@link GPT_RETRY_LIMIT_DEFAULT}.
  * @property retryBackoffTimeSeconds - Seconds to wait between retries for
- *   OpenAI API errors. Defaults to {@link GPT_RETRY_BACKOFF_TIME_SECONDS_DEFAULT}.
+ *   recoverable API errors. Defaults to {@link GPT_RETRY_BACKOFF_TIME_SECONDS_DEFAULT}.
  * @property shotgun - When greater than 1, the request is sent to this many
  *   parallel worker calls and the results are reconciled by a final call.
  * @property warningCallback - Optional callback invoked with a human-readable
  *   warning string on recoverable errors and incomplete responses.
  */
-export interface GptSubmitOptions {
+export interface LLMSubmitOptions {
   model?: string;
   jsonResponse?: boolean | Record<string, unknown> | string;
   systemAnnouncementMessage?: string;
@@ -58,7 +58,7 @@ function isRetryableOpenAIError(error: unknown): boolean {
 }
 
 /**
- * Implements the "shotgun" strategy for {@link gptSubmit}: sends `numBarrels`
+ * Implements the "shotgun" strategy for {@link llmSubmit}: sends `numBarrels`
  * parallel requests with identical inputs, then asks the model to examine all
  * responses and reconcile them into a single authoritative answer.
  *
@@ -66,16 +66,16 @@ function isRetryableOpenAIError(error: unknown): boolean {
  * exploring multiple reasoning paths simultaneously.
  *
  * @param messages - The conversation history to send to each worker.
- * @param openaiClient - The OpenAI client instance.
+ * @param aiClient - The LLM provider's client instance.
  * @param options - Submit options (the `shotgun` field is stripped before
  *   forwarding to avoid infinite recursion).
  * @param numBarrels - Number of parallel worker requests to fire.
  * @returns The reconciled response from the model.
  */
-const gptSubmitShotgun = async (
+const llmSubmitShotgun = async (
   messages: unknown[],
-  openaiClient: OpenAIClientLike,
-  options: GptSubmitOptions,
+  aiClient: AIClientLike,
+  options: LLMSubmitOptions,
   numBarrels: number
 ): Promise<
   string | Record<string, unknown> | unknown[] | number | boolean | null
@@ -83,15 +83,16 @@ const gptSubmitShotgun = async (
   messages = JSON.parse(JSON.stringify(messages));
   options = JSON.parse(JSON.stringify(options));
 
-  // Delete the shotgun option from the options passed to gptSubmitShotgun to avoid infinite recursion.
+  // Delete the shotgun option from the options passed to
+  // llmSubmitShotgun to avoid infinite recursion.
   delete options.shotgun;
 
   if (numBarrels <= 1) {
     // No need for shotgun logic if only 1 barrel requested.
-    return gptSubmit(messages, openaiClient, options);
+    return llmSubmit(messages, aiClient, options);
   }
 
-  // Remove the shotgun option before passing to gptSubmit to avoid
+  // Remove the shotgun option before passing to llmSubmit to avoid
   // infinite recursion!
   delete options.shotgun;
 
@@ -101,9 +102,7 @@ const gptSubmitShotgun = async (
     convoShotgun.push(convoBarrel);
   }
   const resultsRaw: unknown[] = await Promise.all(
-    convoShotgun.map((convoBarrel) =>
-      gptSubmit(convoBarrel, openaiClient, options)
-    )
+    convoShotgun.map((convoBarrel) => llmSubmit(convoBarrel, aiClient, options))
   );
   const resultStrings = resultsRaw.map((result) => JSON.stringify(result));
 
@@ -150,7 +149,7 @@ At least one of them must be wrong; don't fall into the same trap he did.
   // draw conclusions without being constrained by JSON syntax. The final answer
   // will be produced in the next step, where we will ask the model to produce
   // the same format as it was originally given (text or JSON).
-  const sPonderReply = await gptSubmit(reconcileMessages, openaiClient, {
+  const sPonderReply = await llmSubmit(reconcileMessages, aiClient, {
     ...options,
     jsonResponse: undefined,
   });
@@ -167,25 +166,34 @@ you've gained from examining the workers' responses.
 `,
   });
 
-  return gptSubmit(reconcileMessages, openaiClient, options);
+  return llmSubmit(reconcileMessages, aiClient, options);
 };
 
+// Prompt to prohibit unicode characters in model output.
+// Currently not used, but may be useful in the future.
+const PROMPT_UNICODE_PROHIBITION = `
+ABSOLUTELY NO UNICODE ALLOWED. 
+Only use typeable keyboard characters. Do not try to circumvent this rule 
+with escape sequences, backslashes, or other tricks. Use double dashes (--)
+instead of em-dashes or en-dashes; use straight quotes (") and single quotes (')
+ instead of curly versions, use hyphens instead of bullets, etc.
+`.trim();
+
 /**
- * Submits a conversation to the OpenAI Responses API and returns the model's
+ * Submits a conversation to the AI Responses API and returns the model's
  * reply.
  *
  * - Prepends a current-datetime system message to every request.
  * - Optionally enforces a JSON response format (plain JSON or a full JSON
  *   schema via `options.jsonResponse`).
- * - Automatically retries on JSON parse errors and retryable OpenAI API errors
- *   up to `options.retryLimit` times.
- * - Delegates to {@link gptSubmitShotgun} when `options.shotgun > 1`.
+ * - Automatically retries on JSON parse errors and retryable errors up to
+ *       `options.retryLimit` times.
+ * - Delegates to {@link llmSubmitShotgun} when `options.shotgun > 1`.
  *
  * @param messages - The conversation history, including any prior assistant
  *   turns. Each element should be a message object with at minimum `role` and
  *   `content` fields.
- * @param openaiClient - An {@link OpenAIClientLike} instance used to call the
- *   API.
+ * @param aiClient - An {@link AIClientLike} instance used to call the API.
  * @param options - Optional settings controlling model, JSON mode, retries,
  *   and shotgun parallelism.
  * @returns The model's response. A plain `string` when `jsonResponse` is
@@ -194,113 +202,94 @@ you've gained from examining the workers' responses.
  * @throws The last encountered error after all retry attempts are exhausted,
  *   or immediately for non-retryable errors.
  */
-export async function gptSubmit(
+export async function llmSubmit(
   messages: unknown[],
-  openaiClient: OpenAIClientLike,
-  options: GptSubmitOptions = {}
+  aiClient: AIClientLike,
+  options: LLMSubmitOptions = {}
 ): Promise<
   string | Record<string, unknown> | unknown[] | number | boolean | null
 > {
   if (options.shotgun && options.shotgun > 1) {
-    return await gptSubmitShotgun(
-      messages,
-      openaiClient,
-      options,
-      options.shotgun
-    );
+    return await llmSubmitShotgun(messages, aiClient, options, options.shotgun);
   }
 
-  const model = options.model || GPT_MODEL_SMART;
-  const retryLimit = options.retryLimit ?? GPT_RETRY_LIMIT_DEFAULT;
+  const llmProviderName = identifyLLMProvider(aiClient);
+
+  const model = options.model || getModelName(llmProviderName, 'smart');
+  const retryLimit = options.retryLimit ?? LLM_RETRY_LIMIT_DEFAULT;
   const retryBackoffTimeSeconds =
-    options.retryBackoffTimeSeconds ?? GPT_RETRY_BACKOFF_TIME_SECONDS_DEFAULT;
+    options.retryBackoffTimeSeconds ?? LLM_RETRY_BACKOFF_TIME_SECONDS_DEFAULT;
+
+  const systemAnnouncement = `${(options.systemAnnouncementMessage || '').trim()}`;
 
   let failedError: unknown = null;
 
-  let openaiTextParam: Record<string, unknown> | undefined;
-  if (options.jsonResponse) {
-    if (typeof options.jsonResponse === 'boolean') {
-      openaiTextParam = { format: { type: 'json_object' } };
-    } else if (typeof options.jsonResponse === 'string') {
-      openaiTextParam = JSON.parse(options.jsonResponse) as Record<
-        string,
-        unknown
-      >;
-    } else if (isRecord(options.jsonResponse)) {
-      openaiTextParam = JSON.parse(
-        JSON.stringify(options.jsonResponse)
-      ) as Record<string, unknown>;
+  // Create a prepared messages payload.
+  // We must retain our reference to the original `messages` array for appending the
+  // response later. Therefore, we can't simply re-use the messages array.
 
-      const format = openaiTextParam.format;
-      if (isRecord(format) && typeof format.description === 'string') {
-        format.description =
-          `${format.description}\n\nABSOLUTELY NO UNICODE ALLOWED. ` +
-          `Only use typeable keyboard characters. Do not try to circumvent this rule ` +
-          `with escape sequences, backslashes, or other tricks. Use double dashes (--), ` +
-          `straight quotes (") and single quotes (') instead of em-dashes, en-dashes, ` +
-          `and curly versions.`.trim();
-      }
-    }
-  }
-
-  const filteredMessages = messages.filter((message) => {
-    if (!isRecord(message)) {
-      return true;
-    }
-    const role = message.role;
-    const content = message.content;
-    return !(
-      role === 'system' &&
-      typeof content === 'string' &&
-      content.startsWith('!DATETIME:')
-    );
+  // Remove any previous datetime system messages from the conversation, since we'll be
+  // prepending a fresh one with the current datetime.
+  let preparedMessages = messages.filter((message: any) => {
+    const role = message?.role;
+    const content = message?.content;
+    return !(role === 'system' && `${content}`.startsWith('!DATETIME:'));
   });
 
-  let preparedMessages: unknown[] = [
-    currentDatetimeSystemMessage(),
-    ...filteredMessages,
-  ];
+  // Insert a new datetime system message at the beginning of the conversation
+  // to provide the model with current temporal context.
+  preparedMessages.unshift(currentDatetimeSystemMessage());
 
-  if (
-    options.systemAnnouncementMessage &&
-    options.systemAnnouncementMessage.trim()
-  ) {
-    preparedMessages = [
-      { role: 'system', content: options.systemAnnouncementMessage.trim() },
-      ...preparedMessages,
-    ];
+  // If a system announcement message is provided, insert it at the start.
+  if (systemAnnouncement) {
+    preparedMessages.unshift({ role: 'system', content: systemAnnouncement });
   }
 
   for (let index = 0; index < retryLimit; index += 1) {
     let llmReply = '';
 
     try {
-      const payload: {
-        model: string;
-        input: unknown[];
-        text?: Record<string, unknown>;
-      } = {
-        model,
-        input: preparedMessages,
-      };
-      if (openaiTextParam) {
-        payload.text = openaiTextParam;
-      }
+      if (llmProviderName === 'openai') {
+        const openaiClient = aiClient as AIClientLike;
+        const payloadBody: any = {
+          model,
+          input: preparedMessages,
+        };
+        if (options.jsonResponse) {
+          if (typeof options.jsonResponse === 'boolean') {
+            // Freeform JSON response requested, with no schema enforcement.
+            payloadBody.text = { format: { type: 'json_object' } };
+          } else {
+            // JSON response requested with a provided JSON schema for format enforcement.
+            // It has to be the full text object, with a `format` field and everything.
+            payloadBody.text = options.jsonResponse;
+          }
+        }
+        let llmResponse = await openaiClient.responses!.create(payloadBody);
+        llmResponse = llmResponse.output_text.trim();
 
-      const llmResponse = await openaiClient.responses.create(payload);
-
-      if (llmResponse.error && options.warningCallback) {
-        options.warningCallback(
-          `ERROR: OpenAI API returned an error: ${llmResponse.error}`
+        if (options.warningCallback) {
+          if (llmResponse.error) {
+            options.warningCallback(
+              `ERROR: OpenAI API returned an error: ${llmResponse.error}`
+            );
+          }
+          if (llmResponse.incomplete_details) {
+            options.warningCallback(
+              `ERROR: OpenAI API returned incomplete details: ${llmResponse.incomplete_details}`
+            );
+          }
+        }
+      } else if (llmProviderName === 'anthropic') {
+        const anthropicClient = aiClient as AIClientLike;
+        // payloadBody.max_tokens = 8192;
+        // llmResponse = await anthropicClient.messages!.create(payloadBody);
+        throw new Error(
+          'Anthropic client support not yet implemented in llmSubmit'
         );
+      } else {
+        throw new Error(`Unsupported LLM provider: ${llmProviderName}`);
       }
-      if (llmResponse.incomplete_details && options.warningCallback) {
-        options.warningCallback(
-          `ERROR: OpenAI API returned incomplete details: ${llmResponse.incomplete_details}`
-        );
-      }
-
-      llmReply = llmResponse.output_text.trim();
 
       if (!options.jsonResponse) {
         return `${llmReply}`;
@@ -322,7 +311,7 @@ export async function gptSubmit(
         failedError = error;
         if (options.warningCallback) {
           options.warningCallback(
-            `OpenAI API error:\n\n${error}.\n\nRetrying (attempt ${index + 1} of ${retryLimit}) in ${retryBackoffTimeSeconds} seconds...`
+            `LLM Provider (${llmProviderName}) API error:\n\n${error}.\n\nRetrying (attempt ${index + 1} of ${retryLimit}) in ${retryBackoffTimeSeconds} seconds...`
           );
         }
         // Sleep for retryBackoffTimeSeconds before the next retry attempt.

@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  GPT_MODEL_SMART,
-  gptSubmit,
-  type OpenAIClientLike,
-} from '../src/gptSubmit.js';
+import { GPT_MODEL_SMART, gptSubmit } from '../src/gptSubmit.js';
+import { OpenAIClientLike } from '../src/llmProviders.js';
 
 class FakeResponse {
   output_text: any;

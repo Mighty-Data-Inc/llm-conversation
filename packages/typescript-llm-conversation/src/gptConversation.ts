@@ -1,8 +1,5 @@
-import {
-  GPT_MODEL_SMART,
-  gptSubmit,
-  type OpenAIClientLike,
-} from './gptSubmit.js';
+import { GPT_MODEL_SMART, gptSubmit } from './gptSubmit.js';
+import { OpenAIClientLike } from './llmProviders.js';
 
 /**
  * A single message in a conversation, with a role (e.g. `"user"`,
