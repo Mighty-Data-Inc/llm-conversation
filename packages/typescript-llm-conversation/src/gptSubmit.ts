@@ -1,3 +1,9 @@
+import {
+  currentDatetimeSystemMessage,
+  isRecord,
+  parseFirstJsonValue,
+} from './helpers.js';
+
 export const GPT_MODEL_CHEAP = 'gpt-4.1-nano';
 export const GPT_MODEL_SMART = 'gpt-4.1';
 export const GPT_MODEL_VISION = 'gpt-4.1';
@@ -14,15 +20,6 @@ export interface OpenAIClientLike {
   responses: {
     create: (args: any, options?: any) => Promise<any> | any;
   };
-}
-
-/**
- * A chat message with the `system` role, used to inject instructions or
- * context into a conversation before it is submitted to the model.
- */
-export interface SystemMessage {
-  role: 'system';
-  content: string;
 }
 
 /**
@@ -54,65 +51,6 @@ export interface GptSubmitOptions {
 }
 
 /**
- * Type guard that returns `true` when `value` is a plain, non-null, non-array
- * object — i.e. a `Record<string, unknown>`.
- *
- * @param value - The value to test.
- * @returns `true` if `value` is a plain object record.
- */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/**
- * Returns a promise that resolves after the given number of milliseconds.
- * Used to introduce a delay between retry attempts.
- *
- * @param ms - Duration to sleep, in milliseconds.
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * OpenAI's API, even when called with a JSON schema, will often return text that is not
- * valid JSON. It's often because the model will add extra text after the end of its valid
- * JSON response. E.g. instead of `{"foo":"bar"}`, it will sometimes return
- * `{"foo":"bar"}{"baz":"quux"}`.
- *
- * We intentionally do not implement a custom JSON parser here. Instead:
- * 1) Try to parse the full text first (fast path, most responses).
- * 2) If that fails, scan prefixes from start to end and let JSON.parse decide validity.
- *
- * This keeps JSON semantics delegated to the platform parser while still recovering from
- * trailing junk in model output.
- *
- * @param input The text to parse.
- * @returns The first valid JSON value found at the start of the input text.
- * @throws {SyntaxError} If no valid JSON prefix exists.
- */
-function parseFirstJsonValue(input: string): any {
-  const text = input.trimStart();
-  if (!text) {
-    throw new SyntaxError('Unexpected end of JSON input');
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    for (let end = 1; end <= text.length; end += 1) {
-      try {
-        return JSON.parse(text.slice(0, end));
-      } catch {
-        // Keep scanning until we find a valid JSON prefix.
-      }
-    }
-  }
-
-  throw new SyntaxError('Unexpected token in JSON input');
-}
-
-/**
  * Returns `true` when `error` is an OpenAI SDK error that is worth retrying
  * (e.g. rate-limit or transient server errors). Detection is based on the
  * error's `name` property containing `"OpenAI"` or `"APIError"`.
@@ -127,26 +65,6 @@ function isRetryableOpenAIError(error: unknown): boolean {
 
   const name = error.name || '';
   return name.includes('OpenAI') || name.includes('APIError');
-}
-
-/**
- * Builds a {@link SystemMessage} containing the current local date and time
- * formatted as `YYYY-MM-DD HH:MM:SS`. This message is automatically prepended
- * to every request so the model is aware of the current datetime.
- *
- * @returns A system message with the current timestamp.
- */
-export function currentDatetimeSystemMessage(): SystemMessage {
-  const now = new Date();
-  const pad = (value: number): string => value.toString().padStart(2, '0');
-  const timestamp =
-    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ` +
-    `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-
-  return {
-    role: 'system',
-    content: `!DATETIME: The current date and time is ${timestamp}`,
-  };
 }
 
 /**
@@ -417,7 +335,10 @@ export async function gptSubmit(
             `OpenAI API error:\n\n${error}.\n\nRetrying (attempt ${index + 1} of ${retryLimit}) in ${retryBackoffTimeSeconds} seconds...`
           );
         }
-        await sleep(retryBackoffTimeSeconds * 1000);
+        // Sleep for retryBackoffTimeSeconds before the next retry attempt.
+        await new Promise((resolve) =>
+          setTimeout(resolve, retryBackoffTimeSeconds * 1000)
+        );
         continue;
       }
 

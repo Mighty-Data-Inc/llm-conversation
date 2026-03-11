@@ -2,7 +2,7 @@ import {
   GPT_MODEL_SMART,
   gptSubmit,
   type OpenAIClientLike,
-} from './functions.js';
+} from './gptSubmit.js';
 
 /**
  * A single message in a conversation, with a role (e.g. `"user"`,

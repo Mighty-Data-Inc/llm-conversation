@@ -4,7 +4,7 @@ import { OpenAI } from 'openai';
 import { describe, expect, it } from 'vitest';
 import { GptConversation } from '../src/gptConversation.js';
 import { JSONSchemaFormat } from '../src/jsonSchemaFormat.js';
-import { GPT_MODEL_VISION } from '../src/functions.js';
+import { GPT_MODEL_VISION } from '../src/helpers.js';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim();
 if (!OPENAI_API_KEY) {
@@ -44,7 +44,7 @@ const IMAGE_IDENTIFICATION_SCHEMA = JSONSchemaFormat(
   'A test schema for image identification response'
 );
 
-describe('integration tests (live API)', () => {
+describe('GPT  (live API)', () => {
   it('should repeat Hello World', async () => {
     const openaiClient = createClient();
     const convo = new GptConversation(openaiClient);
