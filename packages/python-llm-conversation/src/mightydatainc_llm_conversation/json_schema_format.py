@@ -36,6 +36,10 @@ def convert_schema_recursive(subschema: Any) -> dict[str, Any]:
     if isinstance(subschema, str):
         return {"type": "string", "description": f"{subschema}"}
 
+    # Coerce tuples into lists.
+    if isinstance(subschema, tuple):
+        subschema = list(subschema)
+
     # If it's not a dict or list at this point, it's invalid.
     if not isinstance(subschema, (dict, list)):
         raise ValueError(f"Invalid schema value: {_json_stringify(subschema)}")
@@ -112,6 +116,10 @@ def convert_schema_recursive(subschema: Any) -> dict[str, Any]:
     # In Python, None represents both null/undefined parity from TypeScript.
     if third_elem is None:
         return retval
+
+    # If it's a tuple, coerce it into a list.
+    if isinstance(third_elem, tuple):
+        third_elem = list(third_elem)
 
     if not isinstance(third_elem, list) or len(third_elem) != 2:
         raise ValueError(

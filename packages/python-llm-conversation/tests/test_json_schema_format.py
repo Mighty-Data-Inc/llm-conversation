@@ -179,6 +179,15 @@ class TestJSONSchemaFormat(unittest.TestCase):
             resultSchema["properties"]["mode"]["description"], "Mode description"
         )
 
+    def test_disambiguates_string_description_tuple_not_enum_for_python_tuple(self):
+        result = JSONSchemaFormat({"mode": ("string", "Mode description")})
+        resultSchema = result["format"]["schema"]
+
+        self.assertEqual(resultSchema["properties"]["mode"]["type"], "string")
+        self.assertEqual(
+            resultSchema["properties"]["mode"]["description"], "Mode description"
+        )
+
     def test_attaches_a_description_to_an_enum(self):
         result = JSONSchemaFormat(
             {"mode": [["alpha", "beta", "gamma"], "Greek letters"]}
@@ -244,6 +253,24 @@ class TestJSONSchemaFormat(unittest.TestCase):
         self.assertEqual(resultSchema["properties"]["confidence"]["minValue"], 0.0)
         self.assertEqual(resultSchema["properties"]["confidence"]["maxValue"], 1.0)
 
+    def test_applies_numeric_bounds_from_python_tuple_range(self):
+        result = JSONSchemaFormat(
+            {
+                "confidence": [
+                    float,
+                    "Confidence score",
+                    (0.0, 1.0),
+                ]
+            }
+        )
+        resultSchema = result["format"]["schema"]
+        self.assertEqual(resultSchema["properties"]["confidence"]["type"], "number")
+        self.assertEqual(
+            resultSchema["properties"]["confidence"]["description"], "Confidence score"
+        )
+        self.assertEqual(resultSchema["properties"]["confidence"]["minValue"], 0.0)
+        self.assertEqual(resultSchema["properties"]["confidence"]["maxValue"], 1.0)
+
     def test_supports_one_sided_bounds_with_null(self):
         result = JSONSchemaFormat(
             {
@@ -276,6 +303,31 @@ class TestJSONSchemaFormat(unittest.TestCase):
         )
         self.assertNotIn("minValue", resultSchemaProps["no_bounds_null"])
         self.assertNotIn("maxValue", resultSchemaProps["no_bounds_null"])
+
+    def test_supports_one_sided_bounds_with_null_using_python_tuples(self):
+        result = JSONSchemaFormat(
+            {
+                "min_only": [float, "Minimum only", (0, None)],
+                "max_only": [float, "Maximum only", (None, 10)],
+                "no_bounds": [float, "No bounds", (None, None)],
+            }
+        )
+        resultSchemaProps = result["format"]["schema"]["properties"]
+
+        self.assertEqual(resultSchemaProps["min_only"]["type"], "number")
+        self.assertEqual(resultSchemaProps["min_only"]["description"], "Minimum only")
+        self.assertEqual(resultSchemaProps["min_only"]["minValue"], 0)
+        self.assertNotIn("maxValue", resultSchemaProps["min_only"])
+
+        self.assertEqual(resultSchemaProps["max_only"]["type"], "number")
+        self.assertEqual(resultSchemaProps["max_only"]["description"], "Maximum only")
+        self.assertEqual(resultSchemaProps["max_only"]["maxValue"], 10)
+        self.assertNotIn("minValue", resultSchemaProps["max_only"])
+
+        self.assertEqual(resultSchemaProps["no_bounds"]["type"], "number")
+        self.assertEqual(resultSchemaProps["no_bounds"]["description"], "No bounds")
+        self.assertNotIn("minValue", resultSchemaProps["no_bounds"])
+        self.assertNotIn("maxValue", resultSchemaProps["no_bounds"])
 
     def test_rejects_malformed_numeric_third_element_shape(self):
         with self.assertRaises(Exception):
