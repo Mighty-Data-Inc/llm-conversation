@@ -306,7 +306,7 @@ Nested dict (1 item long):
     // Adjust this number as needed to achieve a reliable pass rate.
     // Huge number of shotguns barrels is needed to get a consistent pass on this test,
     // because the question is so unreliable.
-    const NUM_SHOTGUN_BARRELS = 10;
+    const NUM_SHOTGUN_BARRELS = 4;
 
     const openaiClient = createClient();
     const convo = new LLMConversation(openaiClient);
@@ -356,10 +356,22 @@ even if the count for some letters is zero.
             'where this letter appears. Actually write out the text at the ' +
             'locations to prove that you found them, like this: ' +
             '[position 2, the first "o" in "foo": f *o* o], ' +
-            '[position 3, the second "o" in "foo": f o *o*], ',
+            '[position 3, the second "o" in "foo": f o *o*], ' +
+            'etc. This will make it very easy to see if you mis-count, ' +
+            'because if you highlight the wrong letter, then you will clearly ' +
+            'be able to see the mismatch.',
         ],
       };
     }
+    formatparam.miscounts = [
+      String,
+      'A retrospective examination of the counts you just provided, with particular ' +
+        'attention to any letters where the location or position does not match the ' +
+        'letter being counted -- e.g. if you said something like ' +
+        '[position 7, the second "b" in "s t r a w b *e* r r y"] ' +
+        'then you can clearly see that the letter you counted as "b" ' +
+        'is not actually a "b".',
+    ];
 
     // Clone the convo to a "savepoint". This will allow us to validate its performance
     // against different run modalities.
@@ -382,8 +394,8 @@ even if the count for some letters is zero.
       Record<string, number>
     >;
 
-    // Make sure it has all 26 letters plus the scratchpad field.
-    expect(Object.keys(reply)).toHaveLength(27);
+    // Make sure it has all 26 letters plus the scratchpad field, plus the miscounts field.
+    expect(Object.keys(reply)).toHaveLength(28);
 
     // strawberry milkshake
     // s(2) t(1) r(3) a(2) w(1) b(1) e(2) y(1) m(1) i(1) l(1) k(2) h(1)

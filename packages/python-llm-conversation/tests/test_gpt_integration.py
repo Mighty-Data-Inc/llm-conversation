@@ -317,7 +317,7 @@ Nested dict (1 item long):
 
     def test_should_use_shotgun_for_reliability_on_unreliable_question(self):
         # Large barrel count is intentional to make this live test less flaky.
-        num_shotgun_barrels = 10
+        num_shotgun_barrels = 4
 
         openai_client = create_client()
         convo = LLMConversation(ai_client=openai_client)
@@ -373,6 +373,16 @@ even if the count for some letters is zero.
                 ],
             }
 
+        formatparam["miscounts"] = [
+            str,
+            "A retrospective examination of the counts you just provided, with particular "
+            + "attention to any letters where the location or position does not match the "
+            + "letter being counted -- e.g. if you said something like "
+            + '[position 7, the second "b" in "s t r a w b *e* r r y"] '
+            + 'then you can clearly see that the letter you counted as "b" '
+            + 'is not actually a "b".',
+        ]
+
         convo_before_submit = convo.clone()
 
         json_schema = JSONSchemaFormat(formatparam)
@@ -380,8 +390,8 @@ even if the count for some letters is zero.
 
         reply = convo.get_last_reply_dict()
 
-        # 26 letters + scratchpad
-        self.assertEqual(len(reply.keys()), 27)
+        # 26 letters + scratchpad + miscounts
+        self.assertEqual(len(reply.keys()), 28)
 
         expected_counts: dict[str, int] = {
             "a": 2,
