@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mightydatainc-gpt-conversation"
-version = "2.0.0"
+name = "mightydatainc-llm-conversation"
+version = "1.0.0"
 description = "Utilities for managing multi-shot conversations and structured data handling in LLM applications"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -16,4 +16,4 @@ authors = [{ name = "Mikhail Voloshin" }]
 license = { file = "LICENSE" }
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/mightydatainc_gpt_conversation"]
+packages = ["src/mightydatainc_llm_conversation"]

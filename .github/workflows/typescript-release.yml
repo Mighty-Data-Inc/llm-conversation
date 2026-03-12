@@ -4,11 +4,11 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "packages/typescript-gpt-conversation/**"
+      - "packages/typescript-llm-conversation/**"
       - ".github/workflows/typescript-release.yml"
   pull_request:
     paths:
-      - "packages/typescript-gpt-conversation/**"
+      - "packages/typescript-llm-conversation/**"
       - ".github/workflows/typescript-release.yml"
   workflow_dispatch:
 
@@ -23,10 +23,13 @@ jobs:
     environment: env-cicd
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      TWINE_USERNAME: __token__
+      TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      
     defaults:
       run:
-        working-directory: packages/typescript-gpt-conversation
+        working-directory: packages/typescript-llm-conversation
 
     steps:
       - name: Checkout
@@ -39,7 +42,7 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-          cache-dependency-path: packages/typescript-gpt-conversation/package-lock.json
+          cache-dependency-path: packages/typescript-llm-conversation/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -63,7 +66,7 @@ jobs:
 
           if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
             SHOULD_PUBLISH=true
-            PREVIOUS_VERSION=$(git show HEAD~1:packages/typescript-gpt-conversation/package.json 2>/dev/null | node -p "const fs=require('fs'); const s=fs.readFileSync(0,'utf8'); JSON.parse(s).version" || true)
+            PREVIOUS_VERSION=$(git show HEAD~1:packages/typescript-llm-conversation/package.json 2>/dev/null | node -p "const fs=require('fs'); const s=fs.readFileSync(0,'utf8'); JSON.parse(s).version" || true)
           fi
 
           if [ -z "${PREVIOUS_VERSION}" ]; then
@@ -90,7 +93,7 @@ jobs:
           fi
 
           VERSION="${{ steps.version.outputs.current }}"
-          if npm view "@mightydatainc/gpt-conversation@${VERSION}" version >/dev/null 2>&1; then
+          if npm view "@mightydatainc/llm-conversation@${VERSION}" version >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"

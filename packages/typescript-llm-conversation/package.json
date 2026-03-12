@@ -1,12 +1,12 @@
 {
-  "name": "@mightydatainc/gpt-conversation",
-  "version": "2.0.0",
+  "name": "@mightydatainc/llm-conversation",
+  "version": "1.0.0",
   "description": "Utilities for managing multi-shot conversations and structured data handling in LLM applications",
   "author": "Mikhail Voloshin",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Mighty-Data-Inc/gpt-conversation"
+    "url": "https://github.com/Mighty-Data-Inc/llm-conversation"
   },
   "type": "module",
   "sideEffects": false,
