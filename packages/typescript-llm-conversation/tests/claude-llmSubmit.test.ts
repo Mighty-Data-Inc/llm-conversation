@@ -20,7 +20,7 @@ class FakeAnthropicResponse {
   }
 }
 
-class FakeMessagesAPI {
+class FakeAnthropicMessagesAPI {
   sideEffects: any[];
   createCalls: Array<Record<string, unknown>>;
 
@@ -45,10 +45,10 @@ class FakeMessagesAPI {
 }
 
 class FakeAnthropicClient implements AnthropicClientLike {
-  messages: FakeMessagesAPI;
+  messages: FakeAnthropicMessagesAPI;
 
   constructor(sideEffects: any[] = []) {
-    this.messages = new FakeMessagesAPI(sideEffects);
+    this.messages = new FakeAnthropicMessagesAPI(sideEffects);
   }
 }
 
@@ -122,7 +122,29 @@ describe('Claude llmSubmit', () => {
     // the leading curly brace. We thus omit the leading curly brace in our virtual
     // response to simulate this.
     const client = new FakeAnthropicClient([
-      new FakeAnthropicResponse('"value":1}'),
+      new FakeAnthropicResponse('{"value":1}'),
+    ]);
+
+    const result = await llmSubmit(
+      [{ role: 'user', content: 'json' }],
+      client,
+      {
+        jsonResponse: true,
+      }
+    );
+
+    expect(result).toEqual({ value: 1 });
+  });
+
+  it('Finds and parses JSON even with leading and trailing cruft', async () => {
+    // Our code provides the leading curly brace. In the real world, Claude will
+    // pick up where it left off and produce the rest of the JSON object, without
+    // the leading curly brace. We thus omit the leading curly brace in our virtual
+    // response to simulate this.
+    const client = new FakeAnthropicClient([
+      new FakeAnthropicResponse(
+        'Sure! Here is some JSON! {"value":1} Need anything else?'
+      ),
     ]);
 
     const result = await llmSubmit(
@@ -138,7 +160,7 @@ describe('Claude llmSubmit', () => {
 
   it('parses first json object when response contains trailing json', async () => {
     const client = new FakeAnthropicClient([
-      new FakeAnthropicResponse('"first":1}{"second":2}'),
+      new FakeAnthropicResponse('{"first":1}{"second":2}'),
     ]);
 
     const result = await llmSubmit(
@@ -181,7 +203,7 @@ describe('Claude llmSubmit', () => {
     const warnings: string[] = [];
     const client = new FakeAnthropicClient([
       new FakeAnthropicResponse('not json'),
-      new FakeAnthropicResponse('"ok":true}'),
+      new FakeAnthropicResponse('{"ok":true}'),
     ]);
 
     const result = await llmSubmit(

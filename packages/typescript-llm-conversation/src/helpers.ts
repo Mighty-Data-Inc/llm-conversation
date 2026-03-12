@@ -24,9 +24,22 @@ export function parseFirstJsonValue(input: string): any {
   try {
     return JSON.parse(text);
   } catch {
-    for (let end = 1; end <= text.length; end += 1) {
+    // Continue to the prefix-scanning logic below.
+  }
+
+  for (let start = 0; start < text.length; start += 1) {
+    // We're not only just looking for valid JSON, but specifically
+    // for a valid JSON dict. We'll even allow an array, just to be
+    // generous. But this means that the first character must
+    // be either { or [.
+    const firstChar = text[start];
+    if (firstChar !== '{' && firstChar !== '[') {
+      continue;
+    }
+
+    for (let end = start + 1; end <= text.length; end += 1) {
       try {
-        return JSON.parse(text.slice(0, end));
+        return JSON.parse(text.slice(start, end));
       } catch {
         // Keep scanning until we find a valid JSON prefix.
       }

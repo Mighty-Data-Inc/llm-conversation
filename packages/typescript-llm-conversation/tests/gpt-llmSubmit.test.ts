@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { GPT_MODEL_SMART, OpenAIClientLike } from '../src/llmProviders.js';
 import { llmSubmit } from '../src/llmSubmit.js';
 
-class FakeResponse {
+class FakeOpenAIResponse {
   output_text: any;
   error: any;
   incomplete_details: any;
@@ -19,7 +19,7 @@ class FakeResponse {
   }
 }
 
-class FakeResponsesAPI {
+class FakeOpenAIResponsesAPI {
   sideEffects: any[];
   createCalls: Array<Record<string, unknown>>;
 
@@ -32,7 +32,7 @@ class FakeResponsesAPI {
     this.createCalls.push(kwargs);
 
     if (!this.sideEffects.length) {
-      return new FakeResponse();
+      return new FakeOpenAIResponse();
     }
 
     const next = this.sideEffects.shift();
@@ -44,10 +44,10 @@ class FakeResponsesAPI {
 }
 
 class FakeOpenAIClient implements OpenAIClientLike {
-  responses: FakeResponsesAPI;
+  responses: FakeOpenAIResponsesAPI;
 
   constructor(sideEffects: any[] = []) {
-    this.responses = new FakeResponsesAPI(sideEffects);
+    this.responses = new FakeOpenAIResponsesAPI(sideEffects);
   }
 }
 
@@ -67,7 +67,7 @@ class BadRequestError extends Error {
 
 describe('GPT llmSubmit', () => {
   it('uses default model and omits text config when json mode is disabled', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('ok')]);
+    const client = new FakeOpenAIClient([new FakeOpenAIResponse('ok')]);
 
     const result = await llmSubmit(
       [{ role: 'user', content: 'Hello' }],
@@ -82,7 +82,7 @@ describe('GPT llmSubmit', () => {
   });
 
   it('prepends datetime system message and keeps user messages after it', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('ok')]);
+    const client = new FakeOpenAIClient([new FakeOpenAIResponse('ok')]);
     const messages = [{ role: 'user', content: 'Hello' }];
 
     await llmSubmit(messages, client);
@@ -96,7 +96,7 @@ describe('GPT llmSubmit', () => {
   });
 
   it('replaces stale datetime messages and keeps other system messages', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('ok')]);
+    const client = new FakeOpenAIClient([new FakeOpenAIResponse('ok')]);
     const messages = [
       { role: 'system', content: '!DATETIME: old timestamp' },
       { role: 'system', content: 'keep me' },
@@ -119,7 +119,9 @@ describe('GPT llmSubmit', () => {
   });
 
   it('supports json_response=true with json_object text format', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('{"value":1}')]);
+    const client = new FakeOpenAIClient([
+      new FakeOpenAIResponse('{"value":1}'),
+    ]);
 
     const result = await llmSubmit(
       [{ role: 'user', content: 'json' }],
@@ -134,9 +136,31 @@ describe('GPT llmSubmit', () => {
     expect(request.text).toEqual({ format: { type: 'json_object' } });
   });
 
+  it('Finds and parses JSON even with leading and trailing cruft', async () => {
+    // Our code provides the leading curly brace. In the real world, Claude will
+    // pick up where it left off and produce the rest of the JSON object, without
+    // the leading curly brace. We thus omit the leading curly brace in our virtual
+    // response to simulate this.
+    const client = new FakeOpenAIClient([
+      new FakeOpenAIResponse(
+        'Sure! Here is some JSON! {"value":1} Need anything else?'
+      ),
+    ]);
+
+    const result = await llmSubmit(
+      [{ role: 'user', content: 'json' }],
+      client,
+      {
+        jsonResponse: true,
+      }
+    );
+
+    expect(result).toEqual({ value: 1 });
+  });
+
   it('parses first json object when response contains trailing json', async () => {
     const client = new FakeOpenAIClient([
-      new FakeResponse('{"first":1}{"second":2}'),
+      new FakeOpenAIResponse('{"first":1}{"second":2}'),
     ]);
 
     const result = await llmSubmit(
@@ -154,7 +178,7 @@ describe('GPT llmSubmit', () => {
     const warnings: string[] = [];
     const client = new FakeOpenAIClient([
       new OpenAIError('temporary'),
-      new FakeResponse('ok'),
+      new FakeOpenAIResponse('ok'),
     ]);
 
     const result = await llmSubmit(
@@ -178,8 +202,8 @@ describe('GPT llmSubmit', () => {
   it('retries json decode errors and succeeds', async () => {
     const warnings: string[] = [];
     const client = new FakeOpenAIClient([
-      new FakeResponse('not json'),
-      new FakeResponse('{"ok":true}'),
+      new FakeOpenAIResponse('not json'),
+      new FakeOpenAIResponse('{"ok":true}'),
     ]);
 
     const result = await llmSubmit(
@@ -215,7 +239,7 @@ describe('GPT llmSubmit', () => {
   });
 
   it('throws for malformed response output_text without retry', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse(null)]);
+    const client = new FakeOpenAIClient([new FakeOpenAIResponse(null)]);
 
     await expect(
       llmSubmit([{ role: 'user', content: 'hello' }], client, {
@@ -238,7 +262,9 @@ describe('GPT llmSubmit', () => {
         },
       },
     };
-    const client = new FakeOpenAIClient([new FakeResponse('{"value":42}')]);
+    const client = new FakeOpenAIClient([
+      new FakeOpenAIResponse('{"value":42}'),
+    ]);
 
     const result = await llmSubmit(
       [{ role: 'user', content: 'give me a number' }],
@@ -252,7 +278,9 @@ describe('GPT llmSubmit', () => {
   });
 
   it('throws immediately if jsonResponse object cannot be JSONized', async () => {
-    const client = new FakeOpenAIClient([new FakeResponse('{"unused":true}')]);
+    const client = new FakeOpenAIClient([
+      new FakeOpenAIResponse('{"unused":true}'),
+    ]);
 
     const recursiveObject: any = { foo: 'bar' };
     recursiveObject.self = recursiveObject;

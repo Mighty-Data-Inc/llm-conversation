@@ -4,7 +4,7 @@ import { OpenAI } from 'openai';
 import { describe, expect, it } from 'vitest';
 import { LLMConversation } from '../src/llmConversation.js';
 import { JSONSchemaFormat } from '../src/jsonSchemaFormat.js';
-import { GPT_MODEL_VISION } from '../src/helpers.js';
+import { GPT_MODEL_VISION } from '../src/llmProviders.js';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim();
 if (!OPENAI_API_KEY) {
