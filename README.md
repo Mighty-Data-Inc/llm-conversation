@@ -2,42 +2,46 @@
 
 `llm-conversation` is a cross-language toolkit for building reliable LLM-powered features.
 
-The project exists to remove repeated integration work from application teams. Instead of re-implementing the same conversation and structured-output patterns in every codebase, this repository provides a shared, production-oriented foundation that stays provider-agnostic in design.
+The project exists to remove repeated integration work from application teams. Instead of re-implementing conversation state, structured-output handling, and reliability controls in every codebase, this repository provides shared building blocks with provider-agnostic design.
 
-## Why This Project Exists
+## Engineering Problems Addressed By This Toolkit
 
-- LLM features are often simple in concept but fragile in implementation.
-- Teams repeatedly rebuild the same reliability and formatting layers.
-- Provider APIs evolve quickly, while business workflows need stable behavior.
-- Cross-language organizations need comparable semantics, not duplicated design work.
+- Application code needs deterministic behavior at boundaries where model output is probabilistic.
+- Conversation state handling, role sequencing, and request shaping are easy to get subtly wrong.
+- Structured-output pipelines often degrade into ad hoc parsing and prompt-only guardrails.
+- Teams maintaining multiple language stacks need equivalent semantics and failure behavior.
 
-## What This Project Offers
+## Core Capabilities
 
-This toolkit provides reusable building blocks for the parts of LLM integration that most often become brittle in production:
+This toolkit provides reusable components for the failure-prone parts of LLM integration:
 
-- Stateful conversation flows for multi-step prompting and revision workflows.
-- Stateless request/response utilities for one-shot tasks.
-- Structured JSON output handling, including advisory and schema-constrained patterns.
-- Schema shorthand utilities that reduce verbosity when defining structured responses.
-- Reliability helpers such as retries, backoff, and optional multi-worker "shotgunning" patterns.
-- Cross-language alignment so Python and TypeScript implementations behave consistently.
+- Stateful conversation containers for multi-step prompting and revision workflows.
+- Stateless submit utilities for one-shot tasks and service-layer integration.
+- Structured JSON response modes, including both advisory and schema-constrained workflows.
+- Schema shorthand helpers to reduce boilerplate when defining output structure.
+- Reliability controls such as retries, backoff, and optional multi-worker shotgunning.
+- Cross-language parity so Python and TypeScript implementations align on behavior.
 
-## Where It Helps Most
+## Typical Use Cases
 
 - Normalizing external-source data (client, vendor, or user-provided fields) into canonical internal structures.
 - Building backend workflows that require predictable machine-readable LLM output.
 - Running multi-turn transformations where intermediate context and role management matter.
-- Reducing hand-rolled parsing logic and prompt-only output control strategies.
+- Replacing hand-rolled parsing and brittle prompt-only output control.
 
 ## Scope
 
-This repository focuses on parts of LLM integration that are easy to get wrong repeatedly:
+This repository focuses on repeated integration concerns:
 
 - Managing multi-message conversations over time.
 - Working with structured JSON outputs safely.
 - Keeping shared semantics aligned across implementations.
 
-This repository is intentionally _not_ an agent framework, orchestration platform, or full application starter.
+This repository is intentionally _not_:
+
+- An agent framework or orchestration platform.
+- A full application starter or workflow engine.
+- A replacement for domain-specific validation/business rules.
 
 ## Repository Layout
 
@@ -53,6 +57,12 @@ Both packages follow the same product intent and are developed together to maint
 - Production-first defaults.
 - Parity where shared behavior matters most.
 - Provider-agnostic design with clear adaptation points.
+
+## Engineering Posture
+
+- Prefer predictable interfaces over magic abstractions.
+- Keep failure modes visible and controllable.
+- Encode cross-language behavior with tests rather than convention.
 
 ## Documentation
 
