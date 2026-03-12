@@ -2,6 +2,12 @@
 
 All notable changes to this package will be documented in this file.
 
+## [1.0.5] - 2026-03-12
+
+### Changed
+
+- Bumped package version after updating npmjs OIDC credentials for release publishing.
+
 ## [1.0.4] - 2026-03-12
 
 ### Changed
