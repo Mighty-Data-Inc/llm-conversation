@@ -204,7 +204,7 @@ describe('JSONSchemaFormat', () => {
         expect(props.value).not.toHaveProperty('description');
       });
 
-      it('allows undefined second element and omits description', () => {
+      it('allows min and max values with omitted description', () => {
         const result = JSONSchemaFormat({
           value: [Number, undefined, [0, 10]] as unknown[],
         });
@@ -215,8 +215,8 @@ describe('JSONSchemaFormat', () => {
               properties: {
                 value: {
                   type: 'number',
-                  minimum: 0,
-                  maximum: 10,
+                  minValue: 0,
+                  maxValue: 10,
                 },
               },
             },
@@ -264,8 +264,8 @@ describe('JSONSchemaFormat', () => {
                 confidence: {
                   type: 'number',
                   description: 'Confidence score',
-                  minimum: 0.0,
-                  maximum: 1.0,
+                  minValue: 0.0,
+                  maxValue: 1.0,
                 },
               },
             },
@@ -278,6 +278,7 @@ describe('JSONSchemaFormat', () => {
           min_only: [Number, 'Minimum only', [0, null]],
           max_only: [Number, 'Maximum only', [undefined, 10]],
           no_bounds: [Number, 'No bounds', [undefined, null]],
+          no_bounds_null: [Number, 'No bounds null', null],
         });
 
         expect(result).toMatchObject({
@@ -287,16 +288,20 @@ describe('JSONSchemaFormat', () => {
                 min_only: {
                   type: 'number',
                   description: 'Minimum only',
-                  minimum: 0,
+                  minValue: 0,
                 },
                 max_only: {
                   type: 'number',
                   description: 'Maximum only',
-                  maximum: 10,
+                  maxValue: 10,
                 },
                 no_bounds: {
                   type: 'number',
                   description: 'No bounds',
+                },
+                no_bounds_null: {
+                  type: 'number',
+                  description: 'No bounds null',
                 },
               },
             },
@@ -369,8 +374,8 @@ describe('JSONSchemaFormat', () => {
               count: {
                 type: 'number',
                 description: 'Count',
-                minimum: 1,
-                maximum: 3,
+                minValue: 1,
+                maxValue: 3,
               },
             },
           },

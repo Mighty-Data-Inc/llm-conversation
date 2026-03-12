@@ -173,9 +173,15 @@ function convertSchemaRecursive(subschema: unknown): Record<string, unknown> {
   }
 
   // It is numeric, and it has a third element.
-  // Make sure that it's a length-2 array of numbers, representing [min, max].
-  // Either value can be null (or undefined).
   const thirdElem = subschema[2];
+
+  // If the third element is null or undefined, then we treat it as if it weren't there at all, and we're done.
+  if (thirdElem === null || thirdElem === undefined) {
+    return retval;
+  }
+
+  // Make sure that the third element is a length-2 array of numbers, representing [min, max].
+  // Either value can be null (or undefined).
   if (!Array.isArray(thirdElem) || thirdElem.length !== 2) {
     throw new Error(
       `Invalid schema tuple: ${JSON.stringify(subschema)}. ` +
@@ -196,10 +202,10 @@ function convertSchemaRecursive(subschema: unknown): Record<string, unknown> {
   // If we've reached this point, then the third element is valid.
   const [minValue, maxValue] = thirdElem;
   if (minValue !== null && minValue !== undefined) {
-    retval.minimum = minValue;
+    retval.minValue = minValue;
   }
   if (maxValue !== null && maxValue !== undefined) {
-    retval.maximum = maxValue;
+    retval.maxValue = maxValue;
   }
 
   return retval;
