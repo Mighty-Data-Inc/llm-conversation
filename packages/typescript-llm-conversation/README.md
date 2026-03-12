@@ -1,12 +1,12 @@
-# @mightydatainc/gpt-conversation
+# @mightydatainc/llm-conversation
 
-Utilities for managing multi-shot LLM conversations and structured JSON responses with OpenAI's Responses API.
+Utilities for managing multi-shot LLM conversations and structured JSON responses in a provider-agnostic way, with current support for OpenAI and Anthropic clients.
 
 ## Purpose and Rationale
 
-This package exists to reduce the size, complexity, and repetitiveness of code used for interacting with LLM services -- specifically, with OpenAI's GPT.
+This package exists to reduce the size, complexity, and repetitiveness of code used for interacting with LLM services.
 
-OpenAI's Responses API is flexible, but application code often repeats the same plumbing:
+Provider SDKs are flexible, but application code often repeats the same plumbing:
 
 - message shaping and role management
 - retry and transient failure handling
@@ -19,24 +19,24 @@ This package gives you small, composable building blocks for those recurring con
 
 | Component          | Why it exists                                                                                                               | When to use it                                                                                           |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `gptSubmit`        | Centralizes a robust "submit messages and return reply" workflow, including retries and optional structured output parsing. | One-off prompts or service-layer functions where you already manage message history yourself.            |
-| `GptConversation`  | Wraps a message list with role-aware helpers and submit methods, so stateful chat flows stay readable and less error-prone. | Multi-turn workflows where you want to append/submit messages incrementally.                             |
+| `llmSubmit`        | Centralizes a robust "submit messages and return reply" workflow, including retries and optional structured output parsing. | One-off prompts or service-layer functions where you already manage message history yourself.            |
+| `LLMConversation`  | Wraps a message list with role-aware helpers and submit methods, so stateful chat flows stay readable and less error-prone. | Multi-turn workflows where you want to append/submit messages incrementally.                             |
 | `JSONSchemaFormat` | Provides a compact TypeScript DSL to describe structured output schemas without hand-writing large JSON Schema objects.     | You need stricter contracts than "just return JSON" and want fields/types/ranges/enums defined up front. |
 
 ## Quick Start
 
-### Stateless Prompt Submission With `gptSubmit`
+### Stateless Prompt Submission With `llmSubmit`
 
-Use this pattern as a wrapper around OpenAI's Responses API. gptSubmit provides error handling, "smart" retries, structured input/output type management, and shotgunning.
+Use this pattern as a wrapper around either provider client. `llmSubmit` provides error handling, smart retries, structured input/output type management, and shotgunning.
 
 ```ts
 import OpenAI from 'openai';
-import { gptSubmit } from '@mightydatainc/gpt-conversation';
+import { llmSubmit } from '@mightydatainc/llm-conversation';
 
 const client = new OpenAI();
 
 async function main(): Promise<void> {
-  const story = await gptSubmit(
+  const story = await llmSubmit(
     [
       {
         role: 'user',
@@ -53,16 +53,34 @@ async function main(): Promise<void> {
 void main();
 ```
 
-### Stateful Chat Flows With `GptConversation`
+### Stateless Prompt Submission With Claude (`@anthropic-ai/sdk`)
+
+The same helper works with an Anthropic client.
+
+```ts
+import Anthropic from '@anthropic-ai/sdk';
+import { llmSubmit } from '@mightydatainc/llm-conversation';
+
+const client = new Anthropic();
+
+const reply = await llmSubmit(
+  [{ role: 'user', content: 'Summarize the causes of the French Revolution.' }],
+  client
+);
+
+console.log(reply);
+```
+
+### Stateful Chat Flows With `LLMConversation`
 
 Use this pattern when your application relies on multi-stage (multi-"shot") conversation flows, especially if any of the shots are conditional.
 
 ```ts
 import OpenAI from 'openai';
-import { GptConversation } from '@mightydatainc/gpt-conversation';
+import { LLMConversation } from '@mightydatainc/llm-conversation';
 
 const client = new OpenAI();
-const conversation = new GptConversation(client);
+const conversation = new LLMConversation(client);
 
 const shouldIncludeSidekick = true;
 const shouldEmphasizeCharacterDevelopment = true;
@@ -120,11 +138,11 @@ console.log(story);
 
 ## JSON Response Mode and `JSONSchemaFormat`
 
-GPT has the ability to emit responses in JSON format -- and in fact, it even has the ability to enforce specific JSON schemas with concretely defined structures.
+Modern LLM providers can emit responses in JSON format and support schema-constrained structured output flows. This package is designed to remain provider-agnostic, with built-in handling for OpenAI and Anthropic today.
 
 This functionality is extremely valuable in integrating AI capabilities into traditional procedural workflows, but it's overlooked by many developers due in part to the syntactic complexity of its invocation. Instead, many developers tend to take much more fragile approaches, such as using string parsing (e.g. regexes and substring matching) to extract answers from LLM responses -- a technique that often ends up falling back on prompt engineering to beg, plead, cajole, bribe, or threaten the AI to please just produce a properly formatted reply. This package's JSON response mode capabilities are designed to make AI-integrated data processing feel more like software engineering and less like an Inquisitorial confession session.
 
-The function `gptSubmit` and the `GptConversation` class's `submit` method both take an optional named argument: `jsonResponse`. This can be set simply to `true` for a "lazy" JSON response using a structure that's described in plain English, in the bodies of prior messages. Or, it can be set to a structured format description object (with the help of `JSONSchemaFormat`) to ensure that your output will be guaranteed to conform to a schema of your specification.
+The function `llmSubmit` and the `LLMConversation` class's `submit` method both take an optional named argument: `jsonResponse`. This can be set simply to `true` for a "lazy" JSON response using a structure that's described in plain English in the bodies of prior messages. Or, it can be set to a structured format description object (with the help of `JSONSchemaFormat`) to enforce a schema of your specification.
 
 ### Unenforced ("advisory") JSON response: `jsonResponse=true`
 
@@ -132,10 +150,10 @@ The "lazy" approach to producing JSON output is to set the optional `jsonRespons
 
 ```ts
 import OpenAI from 'openai';
-import { GptConversation } from '@mightydatainc/gpt-conversation';
+import { LLMConversation } from '@mightydatainc/llm-conversation';
 
 const client = new OpenAI();
-const conversation = new GptConversation(client);
+const conversation = new LLMConversation(client);
 
 // The `submit*` methods actually send a real call to the LLM, and will
 // take a few seconds to run. When it's finished, the story will implicitly
@@ -189,18 +207,20 @@ Some caveats to keep in mind when using this approach:
 - The JSON structure is not enforced by any kind of calling framework. The LLM takes your JSON structure description "under advisement", but is not obligated to adhere to it in any way.
 - Particularly large or complex structures can cause the LLM to hang.
 
-### Structured JSON response with OpenAI json_schema: `jsonResponse={"format": {...}}`
+### Structured JSON response (OpenAI example): `jsonResponse={"format": {...}}`
 
-To ensure that the JSON output is always consistent with a desired schema, OpenAI's API allows you to specify structured outputs. The full specification can be found here:
+Structured-output schemas vary by provider. The example below uses OpenAI's `json_schema` format, but `jsonResponse` is intentionally provider-facing so adapter logic can map to provider-specific payloads.
+
+OpenAI structured output reference:
 
 https://developers.openai.com/api/docs/guides/structured-outputs/
 
 ```ts
 import OpenAI from 'openai';
-import { GptConversation } from '@mightydatainc/gpt-conversation';
+import { LLMConversation } from '@mightydatainc/llm-conversation';
 
 const client = new OpenAI();
-const conversation = new GptConversation(client);
+const conversation = new LLMConversation(client);
 
 const story = await conversation.submitUserMessage(
   'Write a short story about a raccoon who steals the Mona Lisa.'
@@ -275,7 +295,7 @@ console.log(
 
 ### Structured JSON response with JSONSchemaFormat: `jsonResponse=JSONSchemaFormat({...})`
 
-While OpenAI's calling conventions are powerful and flexible, they are not particularly laconic or human-readable. As such, this package provides a specialized helper function called `JSONSchemaFormat`, which provides a translation layer that allows you to provide a `jsonResponse` argument in a convenient form of shorthand.
+While provider calling conventions are powerful and flexible, they are not particularly laconic or human-readable. As such, this package provides a specialized helper function called `JSONSchemaFormat`, which provides a translation layer that allows you to provide a `jsonResponse` argument in a convenient form of shorthand.
 
 JSONSchemaFormat takes a data structure that "looks like" the structure you want returned. It's extremely flexible (to the point of being somewhat sloppy), and not quite as expressive as the real `json_schema` structure. However, it's much more compact and readable.
 
@@ -291,13 +311,12 @@ How to use `JSONSchemaFormat` shorthand:
 ```ts
 import OpenAI from 'openai';
 import {
-  GptConversation,
-  JSON_INTEGER,
+  LLMConversation,
   JSONSchemaFormat,
-} from '@mightydatainc/gpt-conversation';
+} from '@mightydatainc/llm-conversation';
 
 const client = new OpenAI();
-const conversation = new GptConversation(client);
+const conversation = new LLMConversation(client);
 
 const story = await conversation.submitUserMessage(
   'Write a short story about a raccoon who steals the Mona Lisa. ' +
@@ -313,7 +332,7 @@ await conversation.submit(undefined, undefined, {
     protagonist_name: String,
     city: [String, 'Where does this story take place?'],
     number_of_theft_attempts: [
-      JSON_INTEGER,
+      Number,
       'How many attempts do they make during the course of the story?',
       [0, 10],
     ],
@@ -375,18 +394,18 @@ for (const accomplice of conversation.getLastReplyDictField(
 }
 ```
 
-Remember that, ultimately, `JSONSchemaFormat` is just a translation function. It produces a data structure that conforms to the JSON schema expected by the OpenAI API.
+Remember that, ultimately, `JSONSchemaFormat` is just a translation function. It produces a data structure that is converted into the schema format expected by the selected provider.
 
 ## Shotgunning
 
-The `gptSubmit` function and the `GptConversation` class's `submit` method take an optional `shotgun` argument. `shotgun` takes a numerical argument that specifies the number of "barrels" (parallel workers) to launch. Use this when you want to spend extra cost/latency for potentially better output quality.
+The `llmSubmit` function and the `LLMConversation` class's `submit` method take an optional `shotgun` argument. `shotgun` takes a numerical argument that specifies the number of "barrels" (parallel workers) to launch. Use this when you want to spend extra cost/latency for potentially better output quality.
 
 ```ts
 import OpenAI from 'openai';
-import { GptConversation } from '@mightydatainc/gpt-conversation';
+import { LLMConversation } from '@mightydatainc/llm-conversation';
 
 const client = new OpenAI();
-const conversation = new GptConversation(client);
+const conversation = new LLMConversation(client);
 
 await conversation.submitUserMessage(
   'Write a short story about a raccoon who steals the Mona Lisa.'
@@ -404,9 +423,9 @@ Shotgunning is particularly useful when you have a multi-component AI-related ta
 
 ## API
 
-### GptConversation
+### LLMConversation
 
-Stateful conversation container built on top of `gptSubmit`.
+Stateful conversation container built on top of `llmSubmit`.
 
 What it does:
 
@@ -416,14 +435,13 @@ What it does:
 
 Initialization:
 
-- `openaiClient`: OpenAI client (or compatible object) used for submissions.
+- `aiClient`: Provider client (or compatible object) used for submissions. Built-in adapters currently support OpenAI and Anthropic.
 - `messages`: Optional initial message list.
 - `model`: Optional default model used by `submit(...)` when no per-call model is provided.
 
 Core submission behavior:
 
-- `submit(...)` optionally appends a message, then calls `gptSubmit(...)` with current history.
-- If `message` is a `Record` containing `format` and `jsonResponse` is not explicitly provided, that object is used as `jsonResponse`.
+- `submit(...)` optionally appends a message, then calls `llmSubmit(...)` with current history.
 - Supports per-call `model`, `jsonResponse`, and `shotgun` options.
 - Appends the final assistant reply back into conversation history and updates `lastReply`.
 
@@ -455,16 +473,16 @@ Inspection and utility methods:
 
 Failure behavior:
 
-- Raises `Error` if `submit(...)` is called without an `openaiClient`.
-- Exceptions from `gptSubmit(...)` are propagated.
+- Raises `Error` if `submit(...)` is called without an `aiClient`.
+- Exceptions from `llmSubmit(...)` are propagated.
 
-### gptSubmit
+### llmSubmit
 
-Primary stateless submit helper for OpenAI Responses API calls.
+Primary stateless submit helper for provider API calls, with built-in adapters for OpenAI Responses API and Anthropic Messages API.
 
 What it does:
 
-- Submits a list of OpenAI-style messages and returns the model reply.
+- Submits a list of role/content messages and returns the model reply.
 - Injects a fresh `!DATETIME` system message on each call.
 - Optionally prepends a `systemAnnouncementMessage` before the datetime message.
 - Supports retry/backoff behavior for transient failures.
@@ -472,8 +490,8 @@ What it does:
 
 Arguments:
 
-- `messages`: Conversation payload in OpenAI message format.
-- `openaiClient`: OpenAI client (or compatible object) exposing `responses.create(...)`.
+- `messages`: Conversation payload in provider-compatible role/content message format.
+- `aiClient`: Provider client compatible with current adapters (OpenAI: `responses.create(...)`; Anthropic: `messages.create(...)`).
 - `model`: Optional model override. Defaults to the package smart model.
 - `jsonResponse`: Output mode control.
 - `systemAnnouncementMessage`: Optional additional top-level system instruction.
@@ -486,32 +504,31 @@ Arguments:
 
 - `null` or `false`: Return plain text.
 - `true`: Request JSON object mode (`{"format": {"type": "json_object"}}`).
-- `Record`: Use provided OpenAI text-format config.
-- `string`: Parse as JSON and use as OpenAI text-format config.
+- `object`: Use provided provider-compatible structured-output config.
 
 Return value:
 
 - Text mode: `string` (trimmed).
-- JSON mode: parsed JSON value from the model output (commonly `Record` or `array`, but can also be scalar JSON values).
+- JSON mode: parsed JSON object from the model output.
 
 Failure behavior:
 
-- Retries transient OpenAI API failures up to `retryLimit` with backoff.
+- Retries transient provider API failures up to `retryLimit` with backoff (built-in retry classifiers currently cover OpenAI/Anthropic SDK errors).
 - Retries JSON parsing failures in JSON mode.
 - Raises immediately (no retry) for non-retryable protocol/request failures.
 
 ## Installation and usage
 
 ```bash
-npm install @mightydatainc/gpt-conversation openai
+npm install @mightydatainc/llm-conversation openai @anthropic-ai/sdk
 ```
 
 ```typescript
 import {
-  gptSubmit,
-  GptConversation,
+  llmSubmit,
+  LLMConversation,
   JSONSchemaFormat,
-} from '@mightydatainc/gpt-conversation';
+} from '@mightydatainc/llm-conversation';
 ```
 
 Requires Node.js runtime version >=24 (ESM + async/await).

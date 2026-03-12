@@ -1,8 +1,8 @@
 import OpenAI from 'openai';
-import { GptConversation } from '@mightydatainc/gpt-conversation';
+import { LLMConversation } from '@mightydatainc/llm-conversation';
 
 const client = new OpenAI();
-const conversation = new GptConversation(client);
+const conversation = new LLMConversation(client);
 
 const shouldIncludeSidekick = true;
 const shouldEmphasizeCharacterDevelopment = true;

@@ -1,10 +1,10 @@
 import OpenAI from 'openai';
-import { gptSubmit } from '@mightydatainc/gpt-conversation';
+import { llmSubmit } from '@mightydatainc/llm-conversation';
 
 const client = new OpenAI();
 
 async function main(): Promise<void> {
-  const story = await gptSubmit(
+  const story = await llmSubmit(
     [
       {
         role: 'user',

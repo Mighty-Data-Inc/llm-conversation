@@ -1,12 +1,11 @@
 import OpenAI from 'openai';
 import {
-  GptConversation,
-  JSON_INTEGER,
+  LLMConversation,
   JSONSchemaFormat,
-} from '@mightydatainc/gpt-conversation';
+} from '@mightydatainc/llm-conversation';
 
 const client = new OpenAI();
-const conversation = new GptConversation(client);
+const conversation = new LLMConversation(client);
 
 const story = await conversation.submitUserMessage(
   'Write a short story about a raccoon who steals the Mona Lisa. ' +
@@ -22,7 +21,7 @@ await conversation.submit(undefined, undefined, {
     protagonist_name: String,
     city: [String, 'Where does this story take place?'],
     number_of_theft_attempts: [
-      JSON_INTEGER,
+      Number,
       'How many attempts do they make during the course of the story?',
       [0, 10],
     ],
