@@ -8,12 +8,19 @@ version = "1.0.0"
 description = "Utilities for managing multi-shot conversations and structured data handling in LLM applications"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [
-  "python-dotenv>=1.0.1",
-  "openai>=2.24.0",
-]
+# Runtime is intentionally dependency-free. Callers pass provider clients through
+# the ClientLike interfaces, so provider SDKs are not required at install time.
+dependencies = []
 authors = [{ name = "Mikhail Voloshin" }]
 license = { file = "LICENSE" }
+
+[project.optional-dependencies]
+# Development-only dependencies for tests, examples, and local workflows.
+dev = [
+  "anthropic>=0.84.0",
+  "openai>=2.24.0",
+  "python-dotenv>=1.0.1",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mightydatainc_llm_conversation"]
