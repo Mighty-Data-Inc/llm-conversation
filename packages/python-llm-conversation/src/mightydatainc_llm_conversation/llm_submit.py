@@ -13,11 +13,13 @@ from .llm_submit_shotgun import llm_submit_shotgun
 
 
 def is_retryable_openai_error(error: Exception) -> bool:
+    """Detect retryable OpenAI-style errors by class name."""
     name = error.__class__.__name__ or ""
     return "OpenAI" in name or "APIError" in name
 
 
 def is_retryable_anthropic_error(error: Exception) -> bool:
+    """Detect retryable Anthropic-style errors by class name."""
     name = error.__class__.__name__ or ""
     return "Anthropic" in name or "APIError" in name
 
@@ -44,6 +46,7 @@ def llm_submit(
     shotgun: int | None = None,
     warning_callback: Callable[[str], None] | None = None,
 ) -> str | dict[str, Any] | list[Any] | int | float | bool | None:
+    """Submit messages to the detected provider with retry/json/shotgun support."""
     options: dict[str, Any] = {
         "model": model,
         "json_response": json_response,
@@ -73,6 +76,7 @@ def llm_submit(
 
     failed_error: Exception | None = None
 
+    # Clone and prepare a request payload without mutating the original list.
     prepared_messages = json.loads(json.dumps(messages))
     prepared_messages = [
         message
@@ -83,8 +87,10 @@ def llm_submit(
         )
     ]
 
+    # Always prepend a fresh datetime system message for temporal context.
     prepared_messages.insert(0, current_datetime_system_message())
 
+    # Optional caller-provided system announcement takes absolute first position.
     if system_announcement:
         prepared_messages.insert(0, {"role": "system", "content": system_announcement})
 
@@ -127,6 +133,7 @@ def llm_submit(
                         )
 
             elif llm_provider_name == "anthropic":
+                # Anthropic receives system content via a separate `system` field.
                 anthropic_system_prompt = ""
                 while len(prepared_messages) > 0:
                     first_msg = prepared_messages[0]
@@ -147,6 +154,7 @@ def llm_submit(
 
                 if options["json_response"]:
                     if isinstance(options["json_response"], bool):
+                        # Encourage raw JSON-only response in freeform JSON mode.
                         payload_body["messages"].append(
                             {
                                 "role": "user",
@@ -218,6 +226,7 @@ def llm_submit(
                         + f"Retrying (attempt {num_try + 1} of {retry_limit_int}) in {retry_backoff_seconds_float} seconds..."
                     )
 
+                # Sleep before next retry attempt.
                 time.sleep(retry_backoff_seconds_float)
                 continue
 

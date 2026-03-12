@@ -85,15 +85,7 @@ instead of em-dashes or en-dashes; use straight quotes (") and single quotes (')
 `.trim();
 
 /**
- * Submits a conversation to the AI Responses API and returns the model's
- * reply.
- *
- * - Prepends a current-datetime system message to every request.
- * - Optionally enforces a JSON response format (plain JSON or a full JSON
- *   schema via `options.jsonResponse`).
- * - Automatically retries on JSON parse errors and retryable errors up to
- *       `options.retryLimit` times.
- * - Delegates to {@link llmSubmitShotgun} when `options.shotgun > 1`.
+ * Submits a conversation to the AI's API and returns the model's reply.
  *
  * @param messages - The conversation history, including any prior assistant
  *   turns. Each element should be a message object with at minimum `role` and
@@ -102,8 +94,7 @@ instead of em-dashes or en-dashes; use straight quotes (") and single quotes (')
  * @param options - Optional settings controlling model, JSON mode, retries,
  *   and shotgun parallelism.
  * @returns The model's response. A plain `string` when `jsonResponse` is
- *   falsy; otherwise a parsed JSON value (`Record`, `unknown[]`, `number`,
- *   `boolean`, or `null`).
+ *   falsy; otherwise a parsed JSON value.
  * @throws The last encountered error after all retry attempts are exhausted,
  *   or immediately for non-retryable errors.
  */
@@ -111,9 +102,7 @@ export const llmSubmit = async (
   messages: unknown[],
   aiClient: AIClientLike,
   options: LLMSubmitOptions = {}
-): Promise<
-  string | Record<string, unknown> | unknown[] | number | boolean | null
-> => {
+): Promise<string | Record<string, unknown>> => {
   if (options.shotgun && options.shotgun > 1) {
     return await llmSubmitShotgun(messages, aiClient, options, options.shotgun);
   }

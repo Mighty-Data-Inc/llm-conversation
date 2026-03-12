@@ -13,12 +13,14 @@ LLM_RETRY_BACKOFF_TIME_SECONDS_DEFAULT = 30
 
 
 def identify_llm_provider(ai_client) -> str:
+    """Identify provider from client capabilities (messages => anthropic)."""
     if hasattr(ai_client, "messages") and getattr(ai_client, "messages") is not None:
         return "anthropic"
     return "openai"
 
 
 def get_model_name(provider: str, tier: str) -> str:
+    """Resolve provider+tier to a concrete model name."""
     if provider == "openai":
         if tier == "cheap":
             return GPT_MODEL_CHEAP

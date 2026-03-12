@@ -21,9 +21,7 @@ export const llmSubmitShotgun = async (
   aiClient: AIClientLike,
   options: LLMSubmitOptions,
   numBarrels: number
-): Promise<
-  string | Record<string, unknown> | unknown[] | number | boolean | null
-> => {
+): Promise<string | Record<string, unknown>> => {
   // Deep-copy the messages to ensure that parallel requests don't
   // interfere with each other's conversation history.
   messages = JSON.parse(JSON.stringify(messages));

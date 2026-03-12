@@ -8,13 +8,16 @@ def llm_submit_shotgun(
     options: dict[str, Any],
     num_barrels: int,
 ):
+    """Run shotgun parallel submissions and reconcile to one final answer."""
     from .llm_submit import llm_submit
 
+    # Deep-copy messages so worker conversations cannot cross-mutate.
     messages = json.loads(json.dumps(messages))
 
     if num_barrels <= 1:
         return llm_submit(messages=messages, ai_client=ai_client, **options)
 
+    # Remove shotgun before nested submits to prevent recursion.
     options_to_pass_to_workers = {**options}
     options_to_pass_to_workers.pop("shotgun", None)
 
